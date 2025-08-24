@@ -2,7 +2,6 @@ import { PrismaClient, OAuthToken, Prisma } from '@prisma/client';
 import { TokenEncryption, CryptoUtils } from '../../utils/crypto';
 import { logger } from '../../utils/logger';
 import Redis from 'ioredis';
-import { getRedisConfig } from '../../config';
 
 /**
  * Token storage configuration

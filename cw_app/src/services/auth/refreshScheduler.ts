@@ -3,7 +3,6 @@ import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { TokenManager, TokenRefreshConfig, TokenManagerEvents } from './tokenManager';
 import { logger } from '../../utils/logger';
-import { getQuickBooksConfig } from '../../config';
 
 /**
  * Refresh job data

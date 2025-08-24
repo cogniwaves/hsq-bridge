@@ -7,12 +7,11 @@ import { DatabaseTokenStorage } from '../services/auth/tokenStorage';
 import { asyncHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { createSuccessResponse, createErrorResponse } from '../utils/responses';
-import { getQuickBooksConfig, getRedisConfig } from '../config';
 import { CryptoUtils } from '../utils/crypto';
 
 const router = Router();
 const prisma = new PrismaClient();
-const redis = new Redis(getRedisConfig());
+let redis: Redis | null = null;
 
 // Initialize token refresh scheduler
 let tokenScheduler: TokenRefreshScheduler | null = null;
@@ -24,6 +23,13 @@ async function initializeTokenManagement(): Promise<void> {
   if (tokenScheduler) return;
 
   try {
+    // Initialize Redis connection
+    if (!redis) {
+      const { getRedisConfig } = await import('../config');
+      redis = new Redis(getRedisConfig());
+    }
+
+    const { getQuickBooksConfig } = await import('../config');
     const qbConfig = getQuickBooksConfig();
     
     if (!qbConfig.clientId || !qbConfig.clientSecret) {

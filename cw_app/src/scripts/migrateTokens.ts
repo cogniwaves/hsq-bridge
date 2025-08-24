@@ -5,7 +5,7 @@ import Redis from 'ioredis';
 import dotenv from 'dotenv';
 import { DatabaseTokenStorage } from '../services/auth/tokenStorage';
 import { logger } from '../utils/logger';
-import { getQuickBooksConfig, getRedisConfig } from '../config';
+import { initializeConfig } from '../config';
 
 dotenv.config();
 
@@ -15,6 +15,11 @@ dotenv.config();
  */
 async function migrateTokens() {
   const prisma = new PrismaClient();
+  
+  // Initialize config first
+  const config = initializeConfig();
+  
+  const { getRedisConfig, getQuickBooksConfig } = await import('../config');
   const redis = new Redis(getRedisConfig());
   const storage = new DatabaseTokenStorage(prisma, redis);
 
