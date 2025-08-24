@@ -13,8 +13,10 @@
     "db:studio": "prisma studio",
     "db:seed": "ts-node src/database/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "migrate:tokens": "ts-node src/scripts/migrateTokens.ts",
     "test": "jest",
     "test:watch": "jest --watch",
+    "test:token": "jest src/services/auth --coverage",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix"
   },
