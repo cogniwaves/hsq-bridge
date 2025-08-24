@@ -119,8 +119,9 @@ invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
 
 // Sync individual invoice to QuickBooks
 invoiceRoutes.post('/:id/sync', async (req, res, next) => {
+  const invoiceId = req.params.id;
+  
   try {
-    const invoiceId = req.params.id;
     logger.info(`Starting QuickBooks sync for invoice ${invoiceId}`);
 
     // Get invoice details
@@ -412,6 +413,7 @@ invoiceRoutes.post('/:id/sync', async (req, res, next) => {
 
   } catch (error) {
     logger.error(`Error syncing invoice ${req.params.id} to QuickBooks:`, error);
+    
     res.status(500).json({
       success: false,
       error: 'Failed to sync invoice to QuickBooks',
