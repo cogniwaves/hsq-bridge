@@ -1,0 +1,159 @@
+
+services:
+  cw_hsq_postgres:
+    image: postgres:15-alpine
+    container_name: cw_hsq_postgres
+    environment:
+      POSTGRES_DB: hs_bridge
+      POSTGRES_USER: hs_bridge_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hs_bridge_password}
+    volumes:
+      - cw_hsq_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "15432:5432"
+    networks:
+      - cw_hsq_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hs_bridge_user -d hs_bridge"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  cw_hsq_redis:
+    image: redis:7-alpine
+    container_name: cw_hsq_redis
+    ports:
+      - "16379:6379"
+    volumes:
+      - cw_hsq_redis_data:/data
+    networks:
+      - cw_hsq_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  cw_hsq_app:
+    build:
+      context: ./cw_app
+      dockerfile: Dockerfile
+      target: development
+    container_name: cw_hsq_app
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      DATABASE_URL: postgresql://hs_bridge_user:${POSTGRES_PASSWORD:-hs_bridge_password}@cw_hsq_postgres:5432/hs_bridge
+      REDIS_URL: redis://cw_hsq_redis:6379
+      HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      QUICKBOOKS_CLIENT_ID: ${QUICKBOOKS_CLIENT_ID}
+      QUICKBOOKS_CLIENT_SECRET: ${QUICKBOOKS_CLIENT_SECRET}
+      QUICKBOOKS_ACCESS_TOKEN: ${QUICKBOOKS_ACCESS_TOKEN}
+      QUICKBOOKS_REFRESH_TOKEN: ${QUICKBOOKS_REFRESH_TOKEN}
+      QUICKBOOKS_COMPANY_ID: ${QUICKBOOKS_COMPANY_ID}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
+      API_KEY_ADMIN: ${API_KEY_ADMIN}
+      API_KEY_READ_ONLY: ${API_KEY_READ_ONLY}
+      API_KEY_WEBHOOK: ${API_KEY_WEBHOOK}
+    ports:
+      - "13000:3000"
+    depends_on:
+      cw_hsq_postgres:
+        condition: service_healthy
+      cw_hsq_redis:
+        condition: service_healthy
+    volumes:
+      - ./cw_app:/app
+      - /app/node_modules
+    networks:
+      - cw_hsq_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  cw_hsq_dashboard:
+    build:
+      context: ./cw_dashboard
+      dockerfile: Dockerfile
+      target: production
+    container_name: cw_hsq_dashboard
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: 1
+      NEXT_PUBLIC_API_URL: http://cw_hsq_app:3000
+      PORT: 3000
+    ports:
+      - "13001:3000"
+    depends_on:
+      cw_hsq_app:
+        condition: service_healthy
+    networks:
+      - cw_hsq_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  cw_hsq_nginx:
+    image: nginx:alpine
+    container_name: cw_hsq_nginx
+    ports:
+      - "18080:80"
+      - "18443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+      - cw_hsq_nginx_logs:/var/log/nginx
+    depends_on:
+      - cw_hsq_app
+      - cw_hsq_dashboard
+    networks:
+      - cw_hsq_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+        reservations:
+          memory: 32M
+          cpus: '0.1'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  cw_hsq_postgres_data:
+  cw_hsq_redis_data:
+  cw_hsq_nginx_logs:
+
+networks:
+  cw_hsq_network:
+    driver: bridge

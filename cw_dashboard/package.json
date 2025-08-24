@@ -1,0 +1,37 @@
+{
+  "name": "cw_dashboard",
+  "version": "1.0.0",
+  "description": "Dashboard for HubSpot-Stripe-QuickBooks Bridge",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^13.4.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@headlessui/react": "^1.7.0",
+    "@heroicons/react": "^2.0.0",
+    "axios": "^1.5.0",
+    "date-fns": "^2.30.0",
+    "recharts": "^2.8.0",
+    "react-hot-toast": "^2.4.0",
+    "swr": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.5.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.1.6",
+    "tailwindcss": "^3.3.0",
+    "@tailwindcss/forms": "^0.5.4",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "eslint": "^8.47.0",
+    "eslint-config-next": "^13.4.0"
+  }
+}

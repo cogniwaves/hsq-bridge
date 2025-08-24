@@ -1,0 +1,239 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is the `hs_bridge` project - a bidirectional synchronization bridge between HubSpot, Stripe, and QuickBooks for invoice and payment management. The system provides automated matching of payments to invoices and maintains consistency across all three platforms.
+
+**Current Status**: Phase 1 Complete - Full HubSpot invoice extraction with normalized database, real-time webhooks, and comprehensive API endpoints.
+
+## Development Commands
+
+### Quick Start
+- `docker compose up -d` - Start all services
+- `docker compose down` - Stop all services (preserves data)
+- `docker compose restart` - Restart all services
+- `curl http://localhost:13000/health` - Health check
+
+### Docker Management
+- `docker compose build` - Build all Docker images
+- `docker compose up -d --build` - Rebuild and start
+- `docker compose down -v` - Stop and remove volumes (⚠️ destructive)
+
+### Database Management
+- `docker compose exec cw_hsq_app npx prisma migrate deploy` - Apply migrations
+- `docker compose exec cw_hsq_app npx prisma generate` - Generate Prisma client
+- `docker compose exec cw_hsq_postgres psql -U hs_bridge_user -d hs_bridge` - Database shell
+
+### Testing & Monitoring
+- `curl http://localhost:13000/api/test/hubspot` - Test HubSpot connection
+- `curl http://localhost:13000/api/webhooks/health` - Test webhook service
+- `docker compose logs cw_hsq_app` - Application logs
+
+## Architecture
+
+### Current Implementation (Phase 1 Complete)
+
+**Docker Services** (Non-conflicting ports):
+- `cw_hsq_app`: Main Node.js/TypeScript application (localhost:13000)
+- `cw_hsq_postgres`: PostgreSQL database (localhost:15432)
+- `cw_hsq_redis`: Redis for job queues (localhost:16379)
+- `cw_hsq_dashboard`: Next.js dashboard (localhost:13001)
+- `cw_hsq_nginx`: Reverse proxy (localhost:18080/18443)
+
+### Database Schema (Normalized)
+
+#### Core Tables
+- `invoice_mapping`: HubSpot invoices with complete metadata
+- `contacts`: Normalized contact information from HubSpot
+- `companies`: Normalized company information from HubSpot
+- `invoice_association`: Many-to-many relationships between invoices and contacts/companies
+- `webhook_events`: Audit trail for webhook processing
+
+#### Key Features
+- **Normalized structure**: Eliminates data duplication
+- **Complete HubSpot integration**: 1,124 real invoices extracted
+- **Real-time webhooks**: Live updates from HubSpot
+- **Comprehensive associations**: Full contact and company relationships
+
+### API Endpoints
+
+#### Current Working Endpoints
+- `GET /api/` - API information and available endpoints
+- `GET /api/test/hubspot` - HubSpot connection test
+- `POST /api/extract/hubspot-invoices-normalized` - Full invoice extraction
+- `GET /api/debug/hubspot-invoice` - Raw HubSpot data inspection
+- `POST /api/webhooks/hubspot` - HubSpot webhook receiver
+- `GET /api/webhooks/health` - Webhook service status
+- `GET /api/webhooks/stats` - Webhook processing statistics
+
+#### Development/Testing Endpoints
+- `POST /api/test/extract-normalized` - Test extraction on 5 invoices
+- `POST /api/webhooks/test` - Test webhook processing
+
+### HubSpot Integration Status
+
+**✅ Current Scopes (Working)**:
+- `crm.objects.invoices.read` - 1,124 invoices accessible
+- `crm.objects.contacts.read` - Contact associations working
+- `crm.objects.companies.read` - Company associations working
+
+**❌ Missing Scopes for Tax Details**:
+- `crm.objects.line_items.read` - Line item details with taxes
+- `crm.schemas.line_items.read` - Line item schemas
+- `e-commerce` - E-commerce functionality with tax calculations
+
+**Current Limitations**:
+- No tax detail breakdown (TPS, TVQ, GST, VAT)
+- Currency forced to USD (no real currency detection)
+- No line-item product details
+- Basic invoice properties only
+
+### Data Processing Architecture
+
+#### Triple Synchronization Strategy
+1. **Initial Sync**: Complete extraction of all HubSpot data
+2. **Real-time Webhooks**: Live updates as changes occur
+3. **Periodic Verification**: Scheduled reconciliation jobs
+
+#### Webhook Processing Flow
+```
+HubSpot Event → Signature Verification → Event Storage → 
+Processing Logic → Database Update → Statistics Tracking
+```
+
+**Supported Events**:
+- Invoice: creation, updates, deletion
+- Contact: creation, updates, deletion  
+- Company: creation, updates, deletion
+
+### Environment Configuration
+
+**Required Environment Variables**:
+```env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=postgresql://hs_bridge_user:password@cw_hsq_postgres:5432/hs_bridge
+REDIS_URL=redis://cw_hsq_redis:6379
+HUBSPOT_API_KEY=pat-na1-... (your private app token)
+HUBSPOT_WEBHOOK_SECRET=your_webhook_secret (optional but recommended)
+```
+
+### Current Metrics
+
+**Database Status**:
+- ✅ 1,124 invoices extracted and stored
+- ✅ All invoices have normalized contact/company associations
+- ✅ Complete HubSpot raw data preservation
+- ✅ Webhook event tracking functional
+
+**API Performance**:
+- ✅ HubSpot connection stable
+- ✅ Webhook processing: 100% success rate (tested)
+- ✅ Real-time synchronization ready
+
+### Known Issues & Limitations
+
+1. **Currency Issue**: All invoices default to USD (HubSpot doesn't provide currency in basic invoice properties)
+2. **No Tax Details**: Need additional API scopes for tax breakdown
+3. **Limited Invoice Properties**: Only 7 basic properties available from HubSpot
+4. **Webhooks Not Activated**: Need public URL to configure HubSpot webhooks
+
+### Next Steps Roadmap
+
+**Phase 1.5 - Enhanced Tax Support**:
+1. Add HubSpot API scopes for line items and taxes
+2. Implement tax detail extraction
+3. Fix currency detection logic
+4. Add line-item product breakdown
+
+**Phase 2 - Stripe Integration**:
+1. Stripe payment webhook processing
+2. Payment-to-invoice matching algorithm
+3. Automated reconciliation
+
+**Phase 3 - QuickBooks Integration**:
+1. QuickBooks API integration
+2. Bidirectional synchronization
+3. Complete three-platform bridge
+
+### Development Notes
+
+**Key Services**:
+- `WebhookService` (`src/services/webhookService.ts`): Complete webhook processing
+- `NormalizedInvoiceExtractor` (`src/services/normalizedInvoiceExtractor.ts`): Normalized data extraction
+- `HubSpotClient` (`src/services/hubspotClient.ts`): HubSpot API integration
+- `ContactService` & `CompanyService`: Normalized entity management
+
+**Database Migrations**: All migrations are applied automatically on container startup.
+
+**Testing Strategy**: Use test endpoints before making production changes. All major operations have corresponding test endpoints.
+
+**Port Mapping**: All external ports are mapped to avoid conflicts (13000, 13001, 15432, 16379, 18080, 18443).
+
+### Docker Best Practices Implemented
+
+**Security & Reliability**:
+- ✅ **Non-root user**: All containers run with dedicated non-root users for security
+- ✅ **Health checks**: Proper health checks with appropriate timeouts and retry logic
+- ✅ **Graceful shutdown**: SIGTERM/SIGINT handlers for clean container shutdown
+- ✅ **Resource management**: Memory monitoring and logging for performance tracking
+- ✅ **Dependency management**: Proper service dependencies with health check conditions
+
+**Performance Optimizations**:
+- ✅ **Layer caching**: Optimized Dockerfile layer ordering for better caching
+- ✅ **Multi-stage builds**: Separate build context with minimal runtime dependencies  
+- ✅ **Volume management**: Named volumes for data persistence and anonymous volumes for node_modules
+- ✅ **Network isolation**: Dedicated bridge network for service communication
+- ✅ **Lazy initialization**: Services initialize only when needed to prevent startup blocking
+
+**Monitoring & Debugging**:
+- ✅ **Comprehensive logging**: Structured logging with appropriate levels
+- ✅ **Health endpoints**: Multiple health check endpoints for different service aspects
+- ✅ **Error handling**: Graceful error handling with meaningful error messages
+- ✅ **Development tools**: Hot reloading enabled for development workflow
+
+### Docker Health & Performance Optimizations
+
+**Recent Docker Improvements** (Applied 2025-08-14):
+- ✅ **Fixed unhealthy cw_hsq_app container**: Implemented lazy initialization for QuickBooks services to prevent startup failures when credentials are not configured
+- ✅ **Enhanced health checks**: Added proper Docker health checks with curl for all services
+- ✅ **Improved error handling**: QuickBooks integration now gracefully handles missing environment variables
+- ✅ **Container optimization**: Fixed file permissions for logs directory and improved Dockerfile structure
+- ✅ **Network verification**: All service-to-service communication tested and working
+
+**Container Health Status**:
+```bash
+# All containers should show (healthy) status
+docker compose ps
+```
+
+**QuickBooks Integration Status**:
+- **Lazy Loading**: QuickBooks services only initialize when endpoints are accessed and credentials are available
+- **Graceful Degradation**: Application starts successfully even without QuickBooks credentials
+- **Health Endpoint**: `GET /api/quickbooks/health` (requires authentication) to check configuration
+
+### Troubleshooting
+
+**Common Commands**:
+- Check container status: `docker compose ps`
+- View logs: `docker compose logs cw_hsq_app`
+- Database access: `docker compose exec cw_hsq_postgres psql -U hs_bridge_user -d hs_bridge`
+- Restart specific service: `docker compose restart cw_hsq_app`
+- Force rebuild: `docker compose up -d --build`
+
+**Health Checks**:
+- Application: `curl http://localhost:13000/health`
+- API Gateway: `curl http://localhost:13000/api/`
+- HubSpot connection: `curl http://localhost:13000/api/test/hubspot` (requires auth)
+- Webhook service: `curl http://localhost:13000/api/webhooks/health` (requires auth)
+- QuickBooks status: `curl http://localhost:13000/api/quickbooks/health` (requires auth)
+- Via nginx proxy: `curl http://localhost:18080/api/`
+- Dashboard: `curl http://localhost:13001/`
+
+**Container Health Troubleshooting**:
+- **Unhealthy cw_hsq_app**: Check logs for startup errors, verify environment variables are set
+- **Network issues**: Ensure all containers are on the same network (`cw_hsq_network`)
+- **Permission issues**: Logs directory is pre-created with correct permissions
+- **Port conflicts**: All services use non-conflicting ports (13000, 13001, 15432, 16379, 18080, 18443)

@@ -1,0 +1,457 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model InvoiceMapping {
+  id                   String    @id @default(uuid())
+  hubspotDealId        String?   @map("hubspot_deal_id")
+  hubspotInvoiceId     String?   @map("hubspot_invoice_id")
+  quickbooksInvoiceId  String?   @map("quickbooks_invoice_id")
+  stripeInvoiceId      String?   @map("stripe_invoice_id")
+  totalAmount          Decimal   @map("total_amount")
+  currency             String    @default("USD")
+  status               InvoiceStatus
+  clientEmail          String?   @map("client_email")
+  clientName           String?   @map("client_name")
+  dueDate              DateTime? @map("due_date")
+  issueDate            DateTime? @map("issue_date")
+  description          String?
+  lastSyncAt           DateTime? @map("last_sync_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Timestamps HubSpot
+  hubspotCreatedAt     DateTime? @map("hubspot_created_at")
+  hubspotModifiedAt    DateTime? @map("hubspot_modified_at")
+  hubspotClosedAt      DateTime? @map("hubspot_closed_at")
+  
+  // Timestamps business
+  invoiceSentAt        DateTime? @map("invoice_sent_at")
+  paymentDueDate       DateTime? @map("payment_due_date")
+  firstPaymentAt       DateTime? @map("first_payment_at")
+  fullyPaidAt          DateTime? @map("fully_paid_at")
+  
+  // Timestamps système
+  firstSyncAt          DateTime? @map("first_sync_at")
+  lastWebhookAt        DateTime? @map("last_webhook_at")
+  lastPeriodicCheckAt  DateTime? @map("last_periodic_check_at")
+  
+  // Métadonnées de synchronisation
+  hubspotObjectId      String?   @map("hubspot_object_id")
+  hubspotObjectType    String?   @map("hubspot_object_type")
+  syncSource           String?   @map("sync_source")
+  
+  // HubSpot specific fields
+  hubspotInvoiceNumber String?   @map("hubspot_invoice_number")
+  balanceDue           Decimal?  @map("balance_due")
+  subtotal             Decimal?  
+  
+  // Raw HubSpot data for future reference
+  hubspotRawData       Json?     @map("hubspot_raw_data")
+  
+  // Enhanced fields for line items support
+  detectedCurrency     String?   @map("detected_currency")  // Real currency from line items
+  lineItemsCount       Int       @default(0) @map("line_items_count")
+
+  // Relations
+  payments             InvoicePayment[]
+  syncLogs             SyncLog[]       @relation("SyncLogInvoice")
+  associations         InvoiceAssociation[]
+  lineItems            LineItem[]
+  taxSummary           TaxSummary?
+
+  @@unique([hubspotInvoiceId])
+  @@unique([quickbooksInvoiceId])
+  @@unique([stripeInvoiceId])
+  @@map("invoice_mapping")
+}
+
+model PaymentMapping {
+  id                  String        @id @default(uuid())
+  stripePaymentId     String?       @map("stripe_payment_id")
+  quickbooksPaymentId String?       @map("quickbooks_payment_id")
+  amount              Decimal
+  currency            String        @default("USD")
+  paymentMethod       PaymentMethod @map("payment_method")
+  status              PaymentStatus
+  transactionDate     DateTime      @map("transaction_date")
+  description         String?
+  metadata            Json?
+  lastSyncAt          DateTime?     @map("last_sync_at")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  invoices            InvoicePayment[]
+  syncLogs            SyncLog[]       @relation("SyncLogPayment")
+
+  @@unique([stripePaymentId])
+  @@unique([quickbooksPaymentId])
+  @@map("payment_mapping")
+}
+
+model InvoicePayment {
+  id               String         @id @default(uuid())
+  invoiceMappingId String         @map("invoice_mapping_id")
+  paymentMappingId String         @map("payment_mapping_id")
+  allocatedAmount  Decimal        @map("allocated_amount")
+  allocationDate   DateTime       @default(now()) @map("allocation_date")
+  status           AllocationStatus
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  // Relations
+  invoice          InvoiceMapping @relation(fields: [invoiceMappingId], references: [id], onDelete: Cascade)
+  payment          PaymentMapping @relation(fields: [paymentMappingId], references: [id], onDelete: Cascade)
+
+  @@unique([invoiceMappingId, paymentMappingId])
+  @@map("invoice_payments")
+}
+
+model SyncLog {
+  id               String    @id @default(uuid())
+  entityType       EntityType @map("entity_type")
+  entityId         String    @map("entity_id")
+  operation        SyncOperation
+  platform         Platform
+  status           SyncStatus
+  errorMessage     String?   @map("error_message")
+  requestData      Json?     @map("request_data")
+  responseData     Json?     @map("response_data")
+  retryCount       Int       @default(0) @map("retry_count")
+  nextRetryAt      DateTime? @map("next_retry_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  invoice          InvoiceMapping? @relation("SyncLogInvoice", fields: [entityId], references: [id], map: "sync_logs_invoice_fkey")
+  payment          PaymentMapping? @relation("SyncLogPayment", fields: [entityId], references: [id], map: "sync_logs_payment_fkey")
+
+  @@index([platform, status])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("sync_logs")
+}
+
+model WebhookEvent {
+  id           String        @id @default(uuid())
+  platform     Platform
+  eventType    String        @map("event_type")
+  eventId      String        @map("event_id")
+  payload      Json
+  processed    Boolean       @default(false)
+  processedAt  DateTime?     @map("processed_at")
+  errorMessage String?       @map("error_message")
+  retryCount   Int           @default(0) @map("retry_count")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@unique([platform, eventId])
+  @@index([platform, eventType])
+  @@index([processed, createdAt])
+  @@map("webhook_events")
+}
+
+// Enums
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  STRIPE_CARD
+  STRIPE_BANK_TRANSFER
+  QUICKBOOKS_CHECK
+  QUICKBOOKS_CASH
+  QUICKBOOKS_CREDIT_CARD
+  QUICKBOOKS_BANK_TRANSFER
+  OTHER
+}
+
+enum AllocationStatus {
+  PENDING
+  ALLOCATED
+  CANCELLED
+}
+
+enum EntityType {
+  INVOICE
+  PAYMENT
+  CONTACT
+  COMPANY
+  LINE_ITEM
+  DEAL
+}
+
+enum Platform {
+  HUBSPOT
+  STRIPE
+  QUICKBOOKS
+}
+
+enum SyncOperation {
+  CREATE
+  UPDATE
+  DELETE
+  SYNC
+}
+
+enum SyncStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  RETRYING
+}
+
+// Normalized Contact table (single source of truth)
+model Contact {
+  id                String    @id @default(uuid())
+  hubspotContactId  String    @unique @map("hubspot_contact_id")
+  email             String?
+  firstName         String?   @map("first_name")
+  lastName          String?   @map("last_name")
+  fullName          String?   @map("full_name")
+  jobTitle          String?   @map("job_title")
+  phone             String?
+  country           String?
+  city              String?
+  // HubSpot timestamps
+  hubspotCreatedAt  DateTime? @map("hubspot_created_at")
+  hubspotUpdatedAt  DateTime? @map("hubspot_updated_at")
+  // System timestamps
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  lastSyncAt        DateTime? @map("last_sync_at")
+  
+  // Relations
+  invoiceAssociations InvoiceAssociation[]
+  
+  @@map("contacts")
+}
+
+// Normalized Company table (single source of truth)
+model Company {
+  id                String    @id @default(uuid())
+  hubspotCompanyId  String    @unique @map("hubspot_company_id")
+  name              String?
+  domain            String?
+  industry          String?
+  country           String?
+  city              String?
+  state             String?
+  zip               String?
+  // HubSpot timestamps
+  hubspotCreatedAt  DateTime? @map("hubspot_created_at")
+  hubspotUpdatedAt  DateTime? @map("hubspot_updated_at")
+  // System timestamps
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  lastSyncAt        DateTime? @map("last_sync_at")
+  
+  // Relations
+  invoiceAssociations InvoiceAssociation[]
+  
+  @@map("companies")
+}
+
+// Junction table for invoice-contact-company associations
+model InvoiceAssociation {
+  id                String         @id @default(uuid())
+  invoiceId         String         @map("invoice_id")
+  contactId         String?        @map("contact_id")
+  companyId         String?        @map("company_id")
+  isPrimaryContact  Boolean        @default(false) @map("is_primary_contact")
+  isPrimaryCompany  Boolean        @default(false) @map("is_primary_company")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  invoice           InvoiceMapping @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  contact           Contact?       @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  company           Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  
+  @@unique([invoiceId, contactId, companyId])
+  @@map("invoice_associations")
+}
+
+// Line Items table for product-level invoice details
+model LineItem {
+  id                    String         @id @default(uuid())
+  hubspotLineItemId     String         @unique @map("hubspot_line_item_id")
+  invoiceId             String         @map("invoice_id")
+  
+  // Product Information
+  productName           String?        @map("product_name")
+  hubspotProductId      String?        @map("hubspot_product_id")
+  sku                   String?
+  
+  // Pricing Information
+  quantity              Int            @default(1)
+  unitPrice             Decimal        @default(0) @map("unit_price")
+  amount                Decimal        @default(0)
+  currency              String?
+  
+  // Discount Information
+  discountAmount        Decimal?       @map("discount_amount")
+  discountPercentage    Decimal?       @map("discount_percentage")
+  preDiscountAmount     Decimal?       @map("pre_discount_amount")
+  totalDiscount         Decimal?       @map("total_discount")
+  
+  // Tax Information
+  taxAmount             Decimal?       @map("tax_amount")
+  taxRate               Decimal?       @map("tax_rate")
+  taxLabel              String?        @map("tax_label")
+  taxCategory           String?        @map("tax_category")
+  postTaxAmount         Decimal?       @map("post_tax_amount")
+  externalTaxRateId     String?        @map("external_tax_rate_id")
+  
+  // HubSpot Raw Data
+  hubspotRawData        Json?          @map("hubspot_raw_data")
+  
+  // HubSpot Timestamps
+  hubspotCreatedAt      DateTime?      @map("hubspot_created_at")
+  hubspotUpdatedAt      DateTime?      @map("hubspot_updated_at")
+  
+  // System Timestamps
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  lastSyncAt            DateTime?      @map("last_sync_at")
+  
+  // Relations
+  invoice               InvoiceMapping @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
+  @@index([hubspotProductId])
+  @@index([currency])
+  @@index([taxLabel])
+  @@index([createdAt])
+  @@map("line_items")
+}
+
+// Tax Summary table for aggregated invoice tax information
+model TaxSummary {
+  id                    String         @id @default(uuid())
+  invoiceId             String         @unique @map("invoice_id")
+  
+  // Tax Breakdown
+  currency              String
+  subtotalBeforeTax     Decimal        @default(0) @map("subtotal_before_tax")
+  totalTaxAmount        Decimal        @default(0) @map("total_tax_amount")
+  totalAfterTax         Decimal        @default(0) @map("total_after_tax")
+  
+  // Tax Details by Type (JSON for flexibility)
+  taxBreakdown          Json?          @map("tax_breakdown") // {"TPS": {"rate": 5.0, "amount": 10.50}, "TVQ": {"rate": 9.975, "amount": 20.94}}
+  
+  // Discount Summary
+  totalDiscountAmount   Decimal?       @map("total_discount_amount")
+  
+  // System Timestamps
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  
+  // Relations
+  invoice               InvoiceMapping @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([currency])
+  @@map("tax_summary")
+}
+
+// Watermarks de synchronisation par entité
+model SyncWatermark {
+  id                String      @id @default(uuid())
+  entityType        EntityType  @map("entity_type")
+  lastSyncAt        DateTime?   @map("last_sync_at")
+  entityCount       Int         @default(0) @map("entity_count")
+  lastModifiedId    String?     @map("last_modified_id")
+  syncDuration      Int?        @map("sync_duration") // Duration in milliseconds
+  errorCount        Int         @default(0) @map("error_count")
+  lastErrorMessage  String?     @map("last_error_message")
+  
+  // Timestamps système
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  
+  @@unique([entityType])
+  @@index([entityType, lastSyncAt])
+  @@map("sync_watermarks")
+}
+
+// Queue de transfert QuickBooks multi-entités
+model QuickBooksTransferQueue {
+  id                String      @id @default(uuid())
+  entityType        EntityType  @map("entity_type")
+  entityId          String      @map("entity_id")
+  actionType        ActionType  @map("action_type")
+  status            QueueStatus @default(PENDING_REVIEW) @map("status")
+  triggerReason     String      @map("trigger_reason") // 'new', 'modified', 'status_changed', etc.
+  
+  // Données de l'entité à transférer
+  entityData        Json        @map("entity_data")
+  originalData      Json?       @map("original_data") // Données avant modification
+  
+  // Informations de validation
+  approvedBy        String?     @map("approved_by")
+  approvedAt        DateTime?   @map("approved_at")
+  rejectedBy        String?     @map("rejected_by")
+  rejectedAt        DateTime?   @map("rejected_at")
+  rejectionReason   String?     @map("rejection_reason")
+  validationNotes   String?     @map("validation_notes")
+  
+  // Informations de transfert
+  transferredAt     DateTime?   @map("transferred_at")
+  quickbooksId      String?     @map("quickbooks_id")
+  transferError     String?     @map("transfer_error")
+  retryCount        Int         @default(0) @map("retry_count")
+  nextRetryAt       DateTime?   @map("next_retry_at")
+  
+  // Timestamps système
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+  
+  @@index([status, entityType])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([approvedAt])
+  @@map("quickbooks_transfer_queue")
+}
+
+// Nouveaux enums pour les watermarks et queue
+enum ActionType {
+  CREATE
+  UPDATE
+  DELETE
+  ASSOCIATE
+  PAYMENT_UPDATE
+}
+
+enum QueueStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  TRANSFERRED
+  FAILED
+  CANCELLED
+}

@@ -1,0 +1,119 @@
+import { Router } from 'express';
+import { invoiceRoutes } from './invoices';
+import { paymentRoutes } from './payments';
+import { syncRoutes } from './sync';
+import { dashboardRoutes } from './dashboard';
+import { metricsRoutes } from './metrics';
+import { webhookRoutes } from './webhooks';
+import { testRoutes } from './test';
+import { extractRoutes } from './extract';
+import { analysisRoutes } from './analysis';
+import { adminRoutes } from './admin';
+import { batchRoutes } from './batch';
+import { quickbooksRoutes } from './quickbooks';
+import { authRoutes } from './auth';
+import { ApiHandler } from '../types/api';
+import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../middleware/auth';
+import { rateLimits } from '../middleware/rateLimiting';
+
+export const apiRoutes = Router();
+
+// Public endpoints (no auth required)
+apiRoutes.get('/', rateLimits.public, ((req, res) => {
+  res.json({
+    name: 'HubSpot-Stripe-QuickBooks Bridge API',
+    version: '1.0.0',
+    status: 'operational',
+    environment: process.env.NODE_ENV || 'development',
+    authentication: {
+      required: true,
+      methods: ['API Key', 'Basic Auth'],
+      headers: {
+        apiKey: 'X-API-Key: your-api-key',
+        basicAuth: 'Authorization: Basic base64(username:password)'
+      }
+    },
+    endpoints: {
+      // Core business endpoints
+      invoices: '/api/invoices (auth required)',
+      payments: '/api/payments (auth required)',
+      sync: '/api/sync (write permission required)',
+      dashboard: '/api/dashboard (read permission required)',
+      metrics: '/api/metrics (read permission required)',
+      webhooks: '/api/webhooks (webhook auth)',
+      
+      // Testing endpoints
+      testHubSpot: '/api/test/hubspot (read permission required)',
+      testLineItems: '/api/test/line-items/:invoiceId (read permission required)',
+      
+      // Extraction endpoints
+      extractInvoices: '/api/extract/hubspot-invoices (write permission required)',
+      extractNormalized: '/api/extract/hubspot-invoices-normalized (write permission required)',
+      extractEnhanced: '/api/extract/hubspot-invoices-enhanced (write permission required)',
+      
+      // Analysis endpoints
+      sqlValidation: '/api/analysis/sql-validation (read permission required)',
+      taxBreakdownAnalysis: '/api/analysis/tax-breakdown-analysis (read permission required)',
+      
+      // QuickBooks Transfer Queue endpoints
+      queueList: '/api/quickbooks/queue (write permission required)',
+      queueSummary: '/api/quickbooks/queue/summary (write permission required)',
+      processChanges: '/api/quickbooks/queue/process-changes (write permission required)',
+      approveEntry: '/api/quickbooks/queue/:id/approve (write permission required)',
+      bulkApprove: '/api/quickbooks/queue/bulk-approve (write permission required)'
+    },
+    features: [
+      'HubSpot Invoice Extraction with Line Items & Taxes',
+      'Multi-currency Support (CAD, USD, etc.)',
+      'Real-time Webhook Processing',
+      'Enhanced Tax Breakdown (TPS, TVQ, GST, VAT)',
+      'Business Intelligence SQL Analytics',
+      'Multi-Entity Incremental Synchronization',
+      'QuickBooks Transfer Queue with Human-in-the-Loop Validation',
+      'Cascade Impact Detection for Entity Dependencies',
+      'Comprehensive Testing Framework',
+      'API Authentication & Rate Limiting'
+    ],
+    lastUpdated: new Date().toISOString()
+  });
+}) as ApiHandler);
+
+apiRoutes.get('/health', rateLimits.public, ((req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || 'development',
+    version: '1.0.0'
+  });
+}) as ApiHandler);
+
+// Authentication middleware pour toutes les routes protégées
+apiRoutes.use(flexibleAuth);
+apiRoutes.use(logAuthenticatedRequest);
+
+// Core business routes (authenticated)
+apiRoutes.use('/invoices', rateLimits.api, requirePermission('read'), invoiceRoutes);
+apiRoutes.use('/payments', rateLimits.api, requirePermission('read'), paymentRoutes);
+apiRoutes.use('/sync', rateLimits.write, requirePermission('write'), syncRoutes);
+apiRoutes.use('/dashboard', rateLimits.read, requirePermission('read'), dashboardRoutes);
+apiRoutes.use('/metrics', rateLimits.read, requirePermission('read'), metricsRoutes);
+apiRoutes.use('/webhooks', rateLimits.webhook, webhookRoutes); // Webhooks ont leur propre auth
+
+// Development and testing routes (authenticated)
+apiRoutes.use('/test', rateLimits.api, requirePermission('read'), testRoutes);
+apiRoutes.use('/extract', rateLimits.write, requirePermission('write'), extractRoutes);
+apiRoutes.use('/analysis', rateLimits.read, requirePermission('read'), analysisRoutes);
+
+// Batch synchronization routes (write permission required)
+apiRoutes.use('/batch', requirePermission('write'), batchRoutes);
+
+// QuickBooks transfer queue routes (write permission required)
+apiRoutes.use('/quickbooks', requirePermission('write'), quickbooksRoutes);
+
+// Authentication routes (write permission required)
+apiRoutes.use('/auth', requirePermission('write'), authRoutes);
+
+// Admin routes (admin permission required)
+apiRoutes.use('/admin', rateLimits.admin, adminRoutes);
+
