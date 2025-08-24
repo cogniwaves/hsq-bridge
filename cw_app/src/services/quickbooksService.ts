@@ -287,10 +287,44 @@ export class QuickBooksService {
   }
 
   /**
+   * Find invoice by DocNumber in QuickBooks
+   */
+  async findInvoiceByDocNumber(docNumber: string): Promise<QuickBooksInvoice | null> {
+    try {
+      const escapedDocNumber = docNumber.replace(/'/g, "''");
+      const query = `SELECT * FROM Invoice WHERE DocNumber = '${escapedDocNumber}'`;
+      const response = await this.client.get(`/query?query=${encodeURIComponent(query)}`);
+      
+      if (response.data.QueryResponse && response.data.QueryResponse.Invoice && response.data.QueryResponse.Invoice.length > 0) {
+        logger.info(`Found existing invoice with DocNumber ${docNumber}: ${response.data.QueryResponse.Invoice[0].Id}`);
+        return response.data.QueryResponse.Invoice[0];
+      }
+      
+      return null;
+    } catch (error) {
+      logger.error(`Failed to find invoice by DocNumber ${docNumber}:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        status: error.response?.status
+      });
+      return null;
+    }
+  }
+
+  /**
    * Create an invoice in QuickBooks
    */
   async createInvoice(invoice: Omit<QuickBooksInvoice, 'Id'>): Promise<QuickBooksInvoice> {
     try {
+      // Check if invoice with this DocNumber already exists
+      if (invoice.DocNumber) {
+        const existingInvoice = await this.findInvoiceByDocNumber(invoice.DocNumber);
+        if (existingInvoice) {
+          logger.info(`Invoice with DocNumber ${invoice.DocNumber} already exists in QuickBooks with ID: ${existingInvoice.Id}`);
+          logger.info('Returning existing invoice instead of creating duplicate');
+          return existingInvoice;
+        }
+      }
+
       logger.info('Creating invoice with data:', JSON.stringify(invoice, null, 2));
       const response = await this.client.post('/invoice', invoice);
       
@@ -312,7 +346,22 @@ export class QuickBooksService {
       logger.error('QuickBooks invoice creation error response:');
       console.log('Error data:', JSON.stringify(error.response?.data, null, 2));
       logger.error('Error status:', error.response?.status);
-      throw new Error('Failed to create QuickBooks invoice');
+      
+      // Check if this is a duplicate document number error
+      if (error.response?.data?.Fault?.Error?.[0]?.code === '6140') {
+        logger.info('Handling duplicate document number error by retrieving existing invoice');
+        
+        // Try to find and return the existing invoice
+        if (invoice.DocNumber) {
+          const existingInvoice = await this.findInvoiceByDocNumber(invoice.DocNumber);
+          if (existingInvoice) {
+            logger.info(`Found existing invoice with DocNumber ${invoice.DocNumber}: ${existingInvoice.Id}`);
+            return existingInvoice;
+          }
+        }
+      }
+      
+      throw new Error(`Failed to create QuickBooks invoice: ${error.response?.data?.Fault?.Error?.[0]?.Message || 'Unknown error'}`);
     }
   }
 

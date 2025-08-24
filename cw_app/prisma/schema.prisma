@@ -455,3 +455,73 @@ enum QueueStatus {
   FAILED
   CANCELLED
 }
+
+// OAuth Token Storage for secure token management
+model OAuthToken {
+  id                    String      @id @default(uuid())
+  provider              String      // 'quickbooks', 'hubspot', etc.
+  tenantId              String?     @map("tenant_id") // For multi-tenant support
+  accessToken           String      @map("access_token") // Will be encrypted
+  refreshToken          String?     @map("refresh_token") // Will be encrypted
+  tokenType             String      @default("Bearer") @map("token_type")
+  expiresAt             DateTime    @map("expires_at")
+  refreshTokenExpiresAt DateTime?   @map("refresh_token_expires_at")
+  scope                 String?
+  realmId               String?     @map("realm_id") // QuickBooks specific
+  companyId             String?     @map("company_id") // Company identifier
+  
+  // Token metadata
+  lastRefreshedAt       DateTime?   @map("last_refreshed_at")
+  refreshCount          Int         @default(0) @map("refresh_count")
+  failedRefreshCount    Int         @default(0) @map("failed_refresh_count")
+  lastRefreshError      String?     @map("last_refresh_error")
+  
+  // Encryption metadata
+  encryptionMethod      String      @default("AES-256-GCM") @map("encryption_method")
+  encryptionIV          String?     @map("encryption_iv")
+  
+  // System timestamps
+  createdAt             DateTime    @default(now()) @map("created_at")
+  updatedAt             DateTime    @updatedAt @map("updated_at")
+  
+  @@unique([provider, tenantId])
+  @@index([provider, expiresAt])
+  @@index([tenantId])
+  @@map("oauth_tokens")
+}
+
+// Token Refresh History for audit and monitoring
+model TokenRefreshLog {
+  id                String      @id @default(uuid())
+  tokenId           String      @map("token_id")
+  provider          String
+  tenantId          String?     @map("tenant_id")
+  refreshType       String      @map("refresh_type") // 'automatic', 'manual', 'on_demand'
+  triggerReason     String      @map("trigger_reason")
+  status            String      // 'success', 'failed', 'skipped'
+  
+  // Timing information
+  attemptedAt       DateTime    @map("attempted_at")
+  completedAt       DateTime?   @map("completed_at")
+  durationMs        Int?        @map("duration_ms")
+  
+  // Token expiry tracking
+  oldExpiresAt      DateTime?   @map("old_expires_at")
+  newExpiresAt      DateTime?   @map("new_expires_at")
+  
+  // Error tracking
+  errorCode         String?     @map("error_code")
+  errorMessage      String?     @map("error_message")
+  retryAttempt      Int         @default(0) @map("retry_attempt")
+  
+  // Request/Response metadata (for debugging)
+  requestMetadata   Json?       @map("request_metadata")
+  responseMetadata  Json?       @map("response_metadata")
+  
+  createdAt         DateTime    @default(now()) @map("created_at")
+  
+  @@index([tokenId])
+  @@index([provider, tenantId])
+  @@index([status, attemptedAt])
+  @@map("token_refresh_logs")
+}

@@ -12,6 +12,7 @@ import { adminRoutes } from './admin';
 import { batchRoutes } from './batch';
 import { quickbooksRoutes } from './quickbooks';
 import { authRoutes } from './auth';
+import { tokenManagementRoutes } from './tokenManagement';
 import { ApiHandler } from '../types/api';
 import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../middleware/auth';
 import { rateLimits } from '../middleware/rateLimiting';
@@ -113,6 +114,9 @@ apiRoutes.use('/quickbooks', requirePermission('write'), quickbooksRoutes);
 
 // Authentication routes (write permission required)
 apiRoutes.use('/auth', requirePermission('write'), authRoutes);
+
+// Token management routes (write permission required)
+apiRoutes.use('/tokens', requirePermission('write'), tokenManagementRoutes);
 
 // Admin routes (admin permission required)
 apiRoutes.use('/admin', rateLimits.admin, adminRoutes);
