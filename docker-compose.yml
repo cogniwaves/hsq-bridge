@@ -45,6 +45,8 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: postgresql://hs_bridge_user:${POSTGRES_PASSWORD:-hs_bridge_password}@cw_hsq_postgres:5432/hs_bridge
       REDIS_URL: redis://cw_hsq_redis:6379
+      REDIS_HOST: cw_hsq_redis
+      REDIS_PORT: 6379
       HUBSPOT_API_KEY: ${HUBSPOT_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       QUICKBOOKS_CLIENT_ID: ${QUICKBOOKS_CLIENT_ID}

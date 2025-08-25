@@ -173,6 +173,121 @@ quickbooksRoutes.post('/queue/process-changes', asyncHandler(async (req, res) =>
 }));
 
 /**
+ * POST /api/quickbooks/queue/initialize-watermarks
+ * Initialize sync watermarks to prevent existing entities from being treated as "changed"
+ */
+quickbooksRoutes.post('/queue/initialize-watermarks', asyncHandler(async (req, res) => {
+  logger.info('Initializing sync watermarks');
+  
+  try {
+    const now = new Date();
+    const entityTypes = ['INVOICE', 'LINE_ITEM', 'CONTACT', 'COMPANY'];
+    const results = [];
+    
+    for (const entityType of entityTypes) {
+      // Check if watermark already exists
+      const existingWatermark = await prisma.sync_watermarks.findUnique({
+        where: { entity_type: entityType }
+      });
+      
+      if (existingWatermark) {
+        results.push({
+          entity_type: entityType,
+          status: 'exists',
+          timestamp: existingWatermark.last_sync_at
+        });
+        continue;
+      }
+      
+      // Get the latest timestamp for this entity type
+      let latestTimestamp = now;
+      let entityCount = 0;
+      
+      switch (entityType) {
+        case 'INVOICE':
+          const invoiceStats = await prisma.invoice_mapping.aggregate({
+            _count: { id: true },
+            _max: { updated_at: true }
+          });
+          entityCount = invoiceStats._count.id || 0;
+          if (invoiceStats._max.updated_at) {
+            latestTimestamp = invoiceStats._max.updated_at;
+          }
+          break;
+          
+        case 'LINE_ITEM':
+          const lineItemStats = await prisma.line_items.aggregate({
+            _count: { id: true },
+            _max: { updated_at: true }
+          });
+          entityCount = lineItemStats._count.id || 0;
+          if (lineItemStats._max.updated_at) {
+            latestTimestamp = lineItemStats._max.updated_at;
+          }
+          break;
+          
+        case 'CONTACT':
+          const contactStats = await prisma.contacts.aggregate({
+            _count: { id: true },
+            _max: { updated_at: true }
+          });
+          entityCount = contactStats._count.id || 0;
+          if (contactStats._max.updated_at) {
+            latestTimestamp = contactStats._max.updated_at;
+          }
+          break;
+          
+        case 'COMPANY':
+          const companyStats = await prisma.companies.aggregate({
+            _count: { id: true },
+            _max: { updated_at: true }
+          });
+          entityCount = companyStats._count.id || 0;
+          if (companyStats._max.updated_at) {
+            latestTimestamp = companyStats._max.updated_at;
+          }
+          break;
+      }
+      
+      // Create the watermark
+      const watermark = await prisma.sync_watermarks.create({
+        data: {
+          entity_type: entityType,
+          last_sync_at: latestTimestamp,
+          entity_count: entityCount,
+          sync_duration: 0,
+          error_count: 0,
+          created_at: now,
+          updated_at: now
+        }
+      });
+      
+      results.push({
+        entity_type: entityType,
+        status: 'created',
+        timestamp: watermark.last_sync_at,
+        entity_count: entityCount
+      });
+      
+      logger.info(`Created sync watermark for ${entityType}: ${latestTimestamp.toISOString()} (${entityCount} entities)`);
+    }
+    
+    res.json(createSuccessResponse({
+      results,
+      summary: {
+        total_types: entityTypes.length,
+        created: results.filter(r => r.status === 'created').length,
+        existing: results.filter(r => r.status === 'exists').length
+      }
+    }, 'Sync watermarks initialized successfully'));
+    
+  } catch (error) {
+    logger.error('Error initializing sync watermarks:', error);
+    next(error);
+  }
+}));
+
+/**
  * POST /api/quickbooks/queue/:id/approve
  * Approuve une entrée spécifique de la queue
  */

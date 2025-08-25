@@ -28,6 +28,29 @@ interface InvoiceQueueItem {
   syncStatus?: 'pending' | 'syncing' | 'synced' | 'failed';
 }
 
+interface ComprehensiveSyncStatus {
+  overall: 'synced' | 'invoices_need_sync' | 'pending_review' | 'approved_pending_transfer';
+  message: string;
+  invoice_sync: {
+    invoices_without_qb_ids: number;
+    status: 'pending' | 'complete';
+  };
+  transfer_queue: {
+    total_items: number;
+    pending_review: number;
+    approved: number;
+    rejected: number;
+    transferred: number;
+    failed: number;
+    by_entity: {
+      invoices: number;
+      line_items: number;
+      contacts: number;
+      companies: number;
+    };
+  };
+}
+
 interface InvoiceDetails {
   id: string;
   hubspotInvoiceId?: string;
@@ -91,6 +114,7 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [invoiceQueue, setInvoiceQueue] = useState<InvoiceQueueItem[]>([]);
+  const [comprehensiveSyncStatus, setComprehensiveSyncStatus] = useState<ComprehensiveSyncStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
@@ -157,61 +181,94 @@ export default function Dashboard() {
     }
   };
 
-  const fetchInvoiceQueue = async () => {
-    setQueueLoading(true);
+  const fetchComprehensiveSyncStatus = async () => {
     try {
-      // Get invoices that need QuickBooks sync
-      const response = await fetch(`${getApiUrl()}/api/invoices/queue/quickbooks?limit=50`, {
+      const response = await fetch(`${getApiUrl()}/api/invoices/sync-status/comprehensive`, {
         headers: getAuthHeaders()
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.success && data.invoices) {
-          setInvoiceQueue(data.invoices);
+        if (data.success && data.syncStatus) {
+          setComprehensiveSyncStatus(data.syncStatus);
         }
-      } else {
-        console.warn('Could not fetch invoice queue - response not ok:', response.status);
-        // Fallback: show some sample data to demonstrate the interface
-        setInvoiceQueue([
-          {
-            id: '1',
-            clientName: 'Sample Client A',
-            totalAmount: 1250.00,
-            status: 'PAID',
-            createdAt: new Date().toISOString(),
-            hubspotInvoiceId: 'hs_inv_123'
-          },
-          {
-            id: '2', 
-            clientName: 'Sample Client B',
-            totalAmount: 850.50,
-            status: 'SENT',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            hubspotInvoiceId: 'hs_inv_124'
-          }
-        ]);
       }
     } catch (err) {
-      console.warn('Could not fetch invoice queue:', err);
-      // Fallback: show some sample data to demonstrate the interface
-      setInvoiceQueue([
-        {
-          id: '1',
-          clientName: 'Sample Client A',
-          totalAmount: 1250.00,
-          status: 'PAID',
-          createdAt: new Date().toISOString(),
-          hubspotInvoiceId: 'hs_inv_123'
-        },
-        {
-          id: '2', 
-          clientName: 'Sample Client B',
-          totalAmount: 850.50,
-          status: 'SENT',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-          hubspotInvoiceId: 'hs_inv_124'
+      console.warn('Could not fetch comprehensive sync status:', err);
+    }
+  };
+
+  const processTransferQueueChanges = async () => {
+    setQueueLoading(true);
+    try {
+      const response = await fetch(`${getApiUrl()}/api/quickbooks/queue/process-changes`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json'
         }
+      });
+      
+      if (response.ok) {
+        // Refresh the sync status after processing
+        await fetchComprehensiveSyncStatus();
+        console.log('Transfer queue changes processed successfully');
+      } else {
+        console.warn('Failed to process transfer queue changes:', response.status);
+      }
+    } catch (err) {
+      console.error('Error processing transfer queue changes:', err);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const fetchInvoiceQueue = async () => {
+    setQueueLoading(true);
+    try {
+      // Fetch both invoice queue and comprehensive sync status
+      await Promise.all([
+        fetchComprehensiveSyncStatus(),
+        (async () => {
+          try {
+            // Get invoices that need QuickBooks sync
+            const response = await fetch(`${getApiUrl()}/api/invoices/queue/quickbooks?limit=50`, {
+              headers: getAuthHeaders()
+            });
+            if (response.ok) {
+              const data = await response.json();
+              if (data.success && data.invoices) {
+                setInvoiceQueue(data.invoices);
+              }
+            } else {
+              console.warn('Could not fetch invoice queue - response not ok:', response.status);
+              // Fallback: show some sample data to demonstrate the interface
+              setInvoiceQueue([
+                {
+                  id: '1',
+                  clientName: 'Sample Client A',
+                  totalAmount: 1250.00,
+                  status: 'PAID',
+                  createdAt: new Date().toISOString(),
+                  hubspotInvoiceId: 'hs_inv_123'
+                },
+                {
+                  id: '2', 
+                  clientName: 'Sample Client B',
+                  totalAmount: 850.50,
+                  status: 'SENT',
+                  createdAt: new Date(Date.now() - 86400000).toISOString(),
+                  hubspotInvoiceId: 'hs_inv_124'
+                }
+              ]);
+            }
+          } catch (err) {
+            console.warn('Could not fetch invoice queue:', err);
+            setInvoiceQueue([]);
+          }
+        })()
       ]);
+    } catch (err) {
+      console.warn('Error during queue fetch:', err);
     } finally {
       setQueueLoading(false);
     }
@@ -706,12 +763,24 @@ export default function Dashboard() {
               <span 
                 className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-200"
                 style={
-                  invoiceQueue.length > 0 
+                  comprehensiveSyncStatus?.overall === 'synced'
+                    ? { backgroundColor: 'var(--color-success-container)', color: 'var(--color-success)' }
+                    : comprehensiveSyncStatus?.overall === 'pending_review'
                     ? { backgroundColor: 'var(--color-warning-container)', color: 'var(--color-warning)' }
-                    : { backgroundColor: 'var(--color-success-container)', color: 'var(--color-success)' }
+                    : { backgroundColor: 'var(--color-error-container)', color: 'var(--color-error)' }
                 }
               >
-                {invoiceQueue.length} pending
+                {comprehensiveSyncStatus ? (
+                  comprehensiveSyncStatus.overall === 'synced' 
+                    ? 'Synced'
+                    : comprehensiveSyncStatus.overall === 'pending_review'
+                    ? `${comprehensiveSyncStatus.transfer_queue.pending_review} pending review`
+                    : comprehensiveSyncStatus.overall === 'approved_pending_transfer'
+                    ? `${comprehensiveSyncStatus.transfer_queue.approved} ready to transfer`
+                    : `${comprehensiveSyncStatus.invoice_sync.invoices_without_qb_ids} need sync`
+                ) : (
+                  `${invoiceQueue.length} pending`
+                )}
               </span>
             </div>
           </div>
@@ -859,26 +928,271 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <CheckCircleIcon 
-                className="mx-auto h-12 w-12 transition-colors duration-200"
-                style={{ color: 'var(--color-success)' }}
-              />
-              <p 
-                className="mt-2 text-sm font-medium transition-colors duration-200"
-                style={{ color: 'var(--color-text-primary)' }}
-              >
-                All invoices are synced
-              </p>
-              <p 
-                className="text-sm transition-colors duration-200"
-                style={{ color: 'var(--color-text-secondary)' }}
-              >
-                No invoices are pending QuickBooks synchronization
-              </p>
+              {comprehensiveSyncStatus ? (
+                <>
+                  {comprehensiveSyncStatus.overall === 'synced' ? (
+                    <>
+                      <CheckCircleIcon 
+                        className="mx-auto h-12 w-12 transition-colors duration-200"
+                        style={{ color: 'var(--color-success)' }}
+                      />
+                      <p 
+                        className="mt-2 text-sm font-medium transition-colors duration-200"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {comprehensiveSyncStatus.message}
+                      </p>
+                    </>
+                  ) : comprehensiveSyncStatus.overall === 'pending_review' ? (
+                    <>
+                      <ClockIcon 
+                        className="mx-auto h-12 w-12 transition-colors duration-200"
+                        style={{ color: 'var(--color-warning)' }}
+                      />
+                      <p 
+                        className="mt-2 text-sm font-medium transition-colors duration-200"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {comprehensiveSyncStatus.message}
+                      </p>
+                      <p 
+                        className="text-sm mt-1 transition-colors duration-200"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {comprehensiveSyncStatus.transfer_queue.by_entity.invoices} invoices, {' '}
+                        {comprehensiveSyncStatus.transfer_queue.by_entity.line_items} line items, {' '}
+                        {comprehensiveSyncStatus.transfer_queue.by_entity.contacts} contacts, {' '}
+                        {comprehensiveSyncStatus.transfer_queue.by_entity.companies} companies
+                      </p>
+                    </>
+                  ) : comprehensiveSyncStatus.overall === 'approved_pending_transfer' ? (
+                    <>
+                      <ExclamationTriangleIcon 
+                        className="mx-auto h-12 w-12 transition-colors duration-200"
+                        style={{ color: 'var(--color-warning)' }}
+                      />
+                      <p 
+                        className="mt-2 text-sm font-medium transition-colors duration-200"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {comprehensiveSyncStatus.message}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <ExclamationTriangleIcon 
+                        className="mx-auto h-12 w-12 transition-colors duration-200"
+                        style={{ color: 'var(--color-error)' }}
+                      />
+                      <p 
+                        className="mt-2 text-sm font-medium transition-colors duration-200"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {comprehensiveSyncStatus.message}
+                      </p>
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <CheckCircleIcon 
+                    className="mx-auto h-12 w-12 transition-colors duration-200"
+                    style={{ color: 'var(--color-success)' }}
+                  />
+                  <p 
+                    className="mt-2 text-sm font-medium transition-colors duration-200"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    No invoices need synchronization
+                  </p>
+                  <p 
+                    className="text-sm transition-colors duration-200"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    Loading comprehensive sync status...
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* QuickBooks Transfer Queue Status */}
+      {comprehensiveSyncStatus && comprehensiveSyncStatus.transfer_queue.total_items > 0 && (
+        <div 
+          className="overflow-hidden shadow rounded-lg transition-colors duration-200"
+          style={{ backgroundColor: 'var(--color-surface)' }}
+        >
+          <div className="px-4 py-5 sm:p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 
+                className="text-lg leading-6 font-medium transition-colors duration-200"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                QuickBooks Transfer Queue
+              </h3>
+              <button
+                onClick={fetchInvoiceQueue}
+                disabled={queueLoading}
+                className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md transition-colors duration-200"
+                style={{
+                  backgroundColor: 'var(--color-primary)',
+                  color: 'var(--color-on-primary)'
+                }}
+              >
+                {queueLoading ? 'Refreshing...' : 'Refresh Status'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="text-center">
+                <div 
+                  className="text-2xl font-bold transition-colors duration-200"
+                  style={{ color: 'var(--color-warning)' }}
+                >
+                  {comprehensiveSyncStatus.transfer_queue.pending_review}
+                </div>
+                <div 
+                  className="text-sm transition-colors duration-200"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Pending Review
+                </div>
+              </div>
+              <div className="text-center">
+                <div 
+                  className="text-2xl font-bold transition-colors duration-200"
+                  style={{ color: 'var(--color-success)' }}
+                >
+                  {comprehensiveSyncStatus.transfer_queue.approved}
+                </div>
+                <div 
+                  className="text-sm transition-colors duration-200"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Approved
+                </div>
+              </div>
+              <div className="text-center">
+                <div 
+                  className="text-2xl font-bold transition-colors duration-200"
+                  style={{ color: 'var(--color-success)' }}
+                >
+                  {comprehensiveSyncStatus.transfer_queue.transferred}
+                </div>
+                <div 
+                  className="text-sm transition-colors duration-200"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Transferred
+                </div>
+              </div>
+              <div className="text-center">
+                <div 
+                  className="text-2xl font-bold transition-colors duration-200"
+                  style={{ color: 'var(--color-error)' }}
+                >
+                  {comprehensiveSyncStatus.transfer_queue.failed}
+                </div>
+                <div 
+                  className="text-sm transition-colors duration-200"
+                  style={{ color: 'var(--color-text-secondary)' }}
+                >
+                  Failed
+                </div>
+              </div>
+            </div>
+
+            {comprehensiveSyncStatus.transfer_queue.pending_review > 0 && (
+              <div className="mt-6 pt-4 border-t" style={{ borderColor: 'var(--color-outline-variant)' }}>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => processTransferQueueChanges()}
+                    disabled={queueLoading}
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors duration-200"
+                    style={{
+                      backgroundColor: 'var(--color-warning-container)',
+                      color: 'var(--color-warning)'
+                    }}
+                  >
+                    Process New Changes
+                  </button>
+                  <button
+                    onClick={() => window.open('/api/quickbooks/queue', '_blank')}
+                    className="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors duration-200"
+                    style={{
+                      backgroundColor: 'var(--color-primary-container)',
+                      color: 'var(--color-primary)'
+                    }}
+                  >
+                    View Queue Details
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6">
+              <h4 
+                className="text-sm font-medium mb-3 transition-colors duration-200"
+                style={{ color: 'var(--color-text-primary)' }}
+              >
+                Items by Type
+              </h4>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: 'var(--color-primary)' }}
+                  ></div>
+                  <span 
+                    className="text-sm transition-colors duration-200"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {comprehensiveSyncStatus.transfer_queue.by_entity.invoices} Invoices
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: 'var(--color-secondary)' }}
+                  ></div>
+                  <span 
+                    className="text-sm transition-colors duration-200"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {comprehensiveSyncStatus.transfer_queue.by_entity.line_items} Line Items
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: 'var(--color-tertiary)' }}
+                  ></div>
+                  <span 
+                    className="text-sm transition-colors duration-200"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {comprehensiveSyncStatus.transfer_queue.by_entity.contacts} Contacts
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <div 
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: 'var(--color-surface-variant)' }}
+                  ></div>
+                  <span 
+                    className="text-sm transition-colors duration-200"
+                    style={{ color: 'var(--color-text-secondary)' }}
+                  >
+                    {comprehensiveSyncStatus.transfer_queue.by_entity.companies} Companies
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Breakdown */}
       {dashboardData && (

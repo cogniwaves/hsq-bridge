@@ -140,12 +140,7 @@ export const getDatabaseConfig = () => ({
 
 export const getRedisConfig = () => {
   const cfg = getConfig();
-  return {
-    url: cfg.REDIS_URL,
-    host: cfg.REDIS_HOST,
-    port: cfg.REDIS_PORT,
-    password: cfg.REDIS_PASSWORD
-  };
+  return cfg.REDIS_URL; // Return URL string directly to avoid host/port override
 };
 
 export const getHubSpotConfig = () => {

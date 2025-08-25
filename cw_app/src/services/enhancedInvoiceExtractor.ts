@@ -141,18 +141,34 @@ export class EnhancedInvoiceExtractor {
         invoiceId = existingInvoice.id;
         logger.debug(`Updated existing invoice ${existingInvoice.id} with enhanced data`);
       } else {
-        // Create new invoice
-        const newInvoice = await prisma.invoiceMapping.create({
-          data: {
-            ...invoiceData,
-            firstSyncAt: now,
-            createdAt: now,
-            updatedAt: now,
-            lastSyncAt: now
-          }
-        });
-        invoiceId = newInvoice.id;
-        logger.debug(`Created new invoice ${newInvoice.id}`);
+        // Create new invoice using raw SQL due to schema mismatch (tenant_id field)
+        const newId = require('crypto').randomUUID();
+        
+        // Use raw SQL to insert the invoice with tenant_id
+        await prisma.$executeRaw`
+          INSERT INTO invoice_mapping (
+            id, tenant_id, hubspot_invoice_id, hubspot_object_id, hubspot_object_type,
+            total_amount, subtotal, balance_due, currency, detected_currency,
+            line_items_count, status, due_date, issue_date, description,
+            hubspot_invoice_number, hubspot_raw_data, hubspot_created_at,
+            hubspot_modified_at, sync_source, first_sync_at, created_at,
+            updated_at, last_sync_at
+          ) VALUES (
+            ${newId}, 'default-tenant', ${invoiceData.hubspotInvoiceId}, 
+            ${invoiceData.hubspotObjectId}, ${invoiceData.hubspotObjectType},
+            ${invoiceData.totalAmount}, ${invoiceData.subtotal}, ${invoiceData.balanceDue},
+            ${invoiceData.currency}, ${invoiceData.detectedCurrency || null},
+            ${invoiceData.lineItemsCount || 0}, ${invoiceData.status}::text::"InvoiceStatus",
+            ${invoiceData.dueDate || null}, ${invoiceData.issueDate || null},
+            ${invoiceData.description || null}, ${invoiceData.hubspotInvoiceNumber || null},
+            ${JSON.stringify(invoiceData.hubspotRawData)}::jsonb,
+            ${invoiceData.hubspotCreatedAt || null}, ${invoiceData.hubspotModifiedAt || null},
+            ${invoiceData.syncSource}, ${now}, ${now}, ${now}, ${now}
+          )
+        `;
+        
+        invoiceId = newId;
+        logger.debug(`Created new invoice ${newId} using raw SQL`);
       }
 
       // Process line items

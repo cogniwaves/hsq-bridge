@@ -117,6 +117,92 @@ invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
   }
 });
 
+// Get comprehensive sync status combining invoice queue and transfer queue
+invoiceRoutes.get('/sync-status/comprehensive', async (req, res, next) => {
+  try {
+    logger.info('Fetching comprehensive sync status...');
+    
+    // Get basic invoice sync status (invoices without QuickBooks IDs)
+    const invoicesNeedingSync = await prisma.$queryRaw`
+      SELECT COUNT(*) as count
+      FROM invoice_mapping 
+      WHERE quickbooks_invoice_id IS NULL 
+        AND status IN ('SENT', 'PAID', 'PARTIALLY_PAID')
+    ` as any[];
+
+    const invoicesWithoutQbIds = Number(invoicesNeedingSync[0]?.count || 0);
+
+    // Get transfer queue status
+    const transferQueueStats = await prisma.$queryRaw`
+      SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'PENDING_REVIEW' THEN 1 END) as pending_review,
+        COUNT(CASE WHEN status = 'APPROVED' THEN 1 END) as approved,
+        COUNT(CASE WHEN status = 'REJECTED' THEN 1 END) as rejected,
+        COUNT(CASE WHEN status = 'TRANSFERRED' THEN 1 END) as transferred,
+        COUNT(CASE WHEN status = 'FAILED' THEN 1 END) as failed,
+        COUNT(CASE WHEN entity_type = 'INVOICE' THEN 1 END) as invoices,
+        COUNT(CASE WHEN entity_type = 'LINE_ITEM' THEN 1 END) as line_items,
+        COUNT(CASE WHEN entity_type = 'CONTACT' THEN 1 END) as contacts,
+        COUNT(CASE WHEN entity_type = 'COMPANY' THEN 1 END) as companies
+      FROM quickbooks_transfer_queue
+    ` as any[];
+
+    const queueStats = transferQueueStats[0] || {};
+    const totalQueueItems = Number(queueStats.total || 0);
+    const pendingReview = Number(queueStats.pending_review || 0);
+
+    // Determine overall sync status
+    let overallStatus = 'synced';
+    let statusMessage = 'All systems synchronized';
+    
+    if (invoicesWithoutQbIds > 0) {
+      overallStatus = 'invoices_need_sync';
+      statusMessage = `${invoicesWithoutQbIds} invoices need QuickBooks synchronization`;
+    } else if (pendingReview > 0) {
+      overallStatus = 'pending_review';
+      statusMessage = `${pendingReview} items pending review for QuickBooks transfer`;
+    } else if (totalQueueItems > 0) {
+      const approved = Number(queueStats.approved || 0);
+      if (approved > 0) {
+        overallStatus = 'approved_pending_transfer';
+        statusMessage = `${approved} items approved and ready for transfer`;
+      }
+    }
+
+    res.json({
+      success: true,
+      syncStatus: {
+        overall: overallStatus,
+        message: statusMessage,
+        invoice_sync: {
+          invoices_without_qb_ids: invoicesWithoutQbIds,
+          status: invoicesWithoutQbIds > 0 ? 'pending' : 'complete'
+        },
+        transfer_queue: {
+          total_items: totalQueueItems,
+          pending_review: pendingReview,
+          approved: Number(queueStats.approved || 0),
+          rejected: Number(queueStats.rejected || 0),
+          transferred: Number(queueStats.transferred || 0),
+          failed: Number(queueStats.failed || 0),
+          by_entity: {
+            invoices: Number(queueStats.invoices || 0),
+            line_items: Number(queueStats.line_items || 0),
+            contacts: Number(queueStats.contacts || 0),
+            companies: Number(queueStats.companies || 0)
+          }
+        }
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    logger.error('Error fetching comprehensive sync status:', error);
+    next(error);
+  }
+});
+
 // Sync individual invoice to QuickBooks
 invoiceRoutes.post('/:id/sync', async (req, res, next) => {
   const invoiceId = req.params.id;

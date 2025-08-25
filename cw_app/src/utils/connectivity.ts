@@ -288,8 +288,8 @@ export async function testRedisConnection(): Promise<ConnectivityTest> {
     const Redis = await import('ioredis');
     const { getRedisConfig } = await import('../config');
     
-    const redisConfig = getRedisConfig();
-    const redis = new Redis.default(redisConfig.url);
+    const redisUrl = getRedisConfig();
+    const redis = new Redis.default(redisUrl);
     
     await redis.ping();
     await redis.quit();

@@ -130,4 +130,4 @@ local/
 
 # Application specific
 uploads/
-storage/
+storage/.env.ERIC
