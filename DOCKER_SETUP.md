@@ -1,10 +1,10 @@
 # HubSpot-Stripe-QuickBooks Bridge - Docker Setup Documentation
 
-## Overview (Updated August 14, 2025)
+## Overview (Updated August 25, 2025)
 
 This project uses Docker and Docker Compose to orchestrate a complete microservices architecture for the HubSpot-Stripe-QuickBooks bridge. All services use the `cw_hsq_` prefix for clear identification and conflict avoidance.
 
-**Current Status**: All 5 services operational with enhanced database schema and performance optimizations applied.
+**Current Status**: All 5 services operational with recently rebuilt Docker images (August 25, 2025). Both cw_hsq_app and cw_hsq_dashboard containers have been completely rebuilt with no-cache builds for optimal performance and latest dependencies.
 
 ## Architecture
 
@@ -271,6 +271,45 @@ make update-deps
 # Rebuild with latest base images
 make build-nocache
 ```
+
+### Recent Container Rebuild (August 25, 2025)
+
+A complete rebuild was performed for both application containers:
+
+#### Changes Made:
+- **cw_hsq_app**: Rebuilt with --no-cache to ensure fresh dependencies and optimal layering
+- **cw_hsq_dashboard**: Rebuilt with --no-cache, created missing `public/` directory for Next.js compatibility
+- **Configuration Fix**: Updated .env service names from `cw_postgres`/`cw_redis` to `cw_hsq_postgres`/`cw_hsq_redis`
+- **Volume Mounts**: Temporarily disabled development volume mounts to resolve permission issues
+
+#### Container Rebuild Process:
+```bash
+# Stop all services
+docker compose down
+
+# Remove old images
+docker rmi hsq-bridge-cw_hsq_app:latest hsq-bridge-cw_hsq_dashboard:latest
+
+# Rebuild with no cache
+docker compose build --no-cache cw_hsq_app
+docker compose build --no-cache cw_hsq_dashboard
+
+# Start services
+docker compose up -d
+```
+
+#### Verification Steps:
+- ✅ All 5 services running and healthy
+- ✅ API responding at http://localhost:13000/health
+- ✅ Dashboard accessible at http://localhost:13001
+- ✅ Nginx proxy functional at http://localhost:18080
+- ✅ Database and Redis connectivity confirmed
+
+#### Known Issues Resolved:
+- Fixed service name mismatch in environment variables
+- Created missing Next.js public directory
+- Resolved container permission issues
+- Confirmed all health checks passing
 
 ### Cleanup
 ```bash

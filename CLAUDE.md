@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a production-ready HubSpot-Stripe-QuickBooks bridge system for bidirectional invoice and payment synchronization. The system is currently in Phase 1.5 with full HubSpot invoice extraction capabilities, enhanced tax support, and real-time webhook processing.
+This is a production-ready HubSpot-Stripe-QuickBooks bridge system for bidirectional invoice and payment synchronization. The system is currently in Phase 1.5 with full HubSpot invoice extraction capabilities, enhanced tax support, OAuth token refresh implementation, and real-time webhook processing.
 
 ## Technology Stack
 
@@ -15,6 +15,7 @@ This is a production-ready HubSpot-Stripe-QuickBooks bridge system for bidirecti
 - **Queue System**: Redis with Bull for background jobs
 - **External APIs**: HubSpot (@hubspot/api-client), Stripe, QuickBooks (node-quickbooks)
 - **Testing**: Jest with ts-jest, 70% coverage threshold
+- **Authentication**: JWT with bcryptjs, OAuth token management with encryption
 
 ### Dashboard (`cw_dashboard/`)
 - **Framework**: Next.js 13+ with React 18
@@ -49,8 +50,12 @@ npm run db:reset             # Reset database (WARNING: removes all data)
 # Testing & Quality
 npm test                     # Run Jest tests
 npm run test:watch          # Jest in watch mode
+npm run test:token          # Test OAuth token functionality specifically
 npm run lint                # ESLint analysis
 npm run lint:fix            # Fix linting issues
+
+# Token Management
+npm run migrate:tokens      # Migrate existing tokens to new format
 ```
 
 ### Dashboard (cw_dashboard)
@@ -119,13 +124,26 @@ make redis-cli              # Access Redis CLI
 ### Database Schema Design
 The system uses a normalized PostgreSQL schema with the following core tables:
 
+#### Core Business Tables
 - **invoice_mapping**: Central invoice records with HubSpot, Stripe, QuickBooks IDs
 - **line_items**: Product-level invoice details with tax information  
 - **tax_summary**: Aggregated tax calculations by invoice
+- **payment_mapping**: Payment records across platforms
+- **invoice_payments**: Many-to-many invoice-payment relationships
+
+#### Entity Management  
 - **contacts/companies**: Normalized entity storage (single source of truth)
 - **invoice_associations**: Many-to-many relationships between invoices and entities
+
+#### System Infrastructure
 - **webhook_events**: Real-time event processing with retry logic
 - **sync_logs**: Complete audit trail for all synchronization operations
+- **sync_watermarks**: Track incremental sync progress by entity type
+- **quickbooks_transfer_queue**: Approval workflow for QuickBooks transfers
+
+#### Security & Authentication
+- **oauth_tokens**: Encrypted OAuth token storage with refresh capabilities
+- **token_refresh_logs**: Audit trail for all token refresh operations
 
 ### API Integration Services
 
@@ -137,10 +155,15 @@ The system uses a normalized PostgreSQL schema with the following core tables:
 
 #### Service Layer Architecture
 - **NormalizedInvoiceExtractor**: Main extraction service with contact/company normalization
-- **EnhancedInvoiceExtractor**: Tax processing and line items support
+- **EnhancedInvoiceExtractor**: Tax processing and line items support  
 - **WebhookService**: Real-time event processing for all platforms
 - **ContactService/CompanyService**: Entity management with deduplication
 - **QuickBooksTransferQueue**: Approval workflow for QuickBooks synchronization
+
+#### Authentication & Token Management (`services/auth/`)
+- **TokenManager**: Core OAuth token management with encryption
+- **RefreshScheduler**: Automatic token refresh scheduling
+- **TokenStorage**: Secure encrypted storage for sensitive tokens
 
 ## Key Development Patterns
 
@@ -159,8 +182,9 @@ The system uses a normalized PostgreSQL schema with the following core tables:
 ### Testing Strategy
 - Unit tests for business logic and utilities
 - Integration tests for API endpoints and database operations
-- Jest configuration with 70% coverage threshold
+- Jest configuration with 70% coverage threshold enforced
 - Proper test isolation with database cleanup
+- Specific OAuth token functionality testing (`npm run test:token`)
 
 ### Error Handling Patterns
 ```typescript
@@ -193,11 +217,20 @@ STRIPE_WEBHOOK_SECRET=whsec_webhook_secret
 # QuickBooks Integration
 QUICKBOOKS_CLIENT_ID=your-quickbooks-app-id
 QUICKBOOKS_CLIENT_SECRET=your-quickbooks-secret
+QUICKBOOKS_ACCESS_TOKEN=stored-in-oauth_tokens-table
+QUICKBOOKS_REFRESH_TOKEN=stored-in-oauth_tokens-table  
+QUICKBOOKS_COMPANY_ID=your-company-realm-id
 
 # System Configuration
 NODE_ENV=development|production
 PORT=3000
 REDIS_URL=redis://cw_hsq_redis:6379
+
+# Security & Authentication
+WEBHOOK_SECRET=your-webhook-signing-secret
+API_KEY_ADMIN=admin-access-key
+API_KEY_READ_ONLY=readonly-access-key
+API_KEY_WEBHOOK=webhook-processing-key
 ```
 
 ## Current Implementation Status
@@ -215,6 +248,9 @@ REDIS_URL=redis://cw_hsq_redis:6379
 - Product-level invoice breakdown with tax calculations
 - Enhanced database schema with line_items and tax_summary tables
 - Business intelligence SQL scripts for analytics
+- Comprehensive OAuth token refresh system for QuickBooks integration
+- Encrypted token storage with automatic refresh scheduling
+- Token refresh audit trail and monitoring
 
 ### Phase 2 📋 Planned
 - Stripe payment integration with webhook processing
@@ -228,6 +264,7 @@ REDIS_URL=redis://cw_hsq_redis:6379
 - Unit tests: `npm test` or `make test-unit`
 - Integration tests: `npm run test:coverage` or `make test-integration`  
 - Watch mode: `npm run test:watch` or `make test-watch`
+- OAuth token tests: `npm run test:token` (specific to auth functionality)
 - Coverage reports generated in `coverage/` directory
 
 ### Code Quality
@@ -291,9 +328,30 @@ make metrics                  # Application metrics
 - **Logs Cleanup**: `make clean-logs`
 - **Service Restart**: `make restart`
 
+## OAuth Token Management
+
+### Token Storage and Security
+- OAuth tokens encrypted using AES-256-GCM encryption before database storage
+- Automatic token refresh scheduling prevents expiration
+- Comprehensive audit trail in `token_refresh_logs` table
+- Support for multi-tenant token management
+
+### Token Refresh Process
+```typescript
+// Automatic refresh triggered before expiration
+// Manual refresh can be triggered via API:
+POST /api/token/refresh/quickbooks
+```
+
+### Key Components
+- **services/auth/tokenManager.ts**: Core token operations
+- **services/auth/refreshScheduler.ts**: Automatic refresh scheduling  
+- **services/auth/tokenStorage.ts**: Encrypted storage layer
+
 ## Security Considerations
 
 - All API keys stored in environment variables (never in code)
+- OAuth tokens encrypted at rest with AES-256-GCM
 - Webhook signature verification implemented and enforced
 - Database credentials use non-root user with limited privileges
 - CORS configured for production domains only
