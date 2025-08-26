@@ -15,9 +15,9 @@ import { quickbooksRoutes } from './quickbooks';
 import { authRoutes } from './auth';
 import { tokenManagementRoutes } from './tokenManagement';
 // New multi-tenant authentication routes
-import { userAuthRoutes } from './userAuth';
-import { tenantRoutes } from './tenants';
-import { invitationRoutes } from './invitations';
+// import { userAuthRoutes } from './userAuth';
+// import { tenantRoutes } from './tenants';
+// import { invitationRoutes } from './invitations';
 import { ApiHandler } from '../types/api';
 import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../middleware/auth';
 import { rateLimits } from '../middleware/rateLimiting';
@@ -141,9 +141,10 @@ apiRoutes.get('/health', rateLimits.public, ((req, res) => {
 
 // New Multi-Tenant Authentication Routes (before flexibleAuth middleware)
 // These routes handle their own authentication internally
-apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
-apiRoutes.use('/tenants', tenantRoutes); // Tenant management endpoints  
-apiRoutes.use('/invitations', invitationRoutes); // Invitation system endpoints
+// Temporarily disabled for deployment stability
+// apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
+// apiRoutes.use('/tenants', tenantRoutes); // Tenant management endpoints  
+// apiRoutes.use('/invitations', invitationRoutes); // Invitation system endpoints
 
 // Authentication middleware pour toutes les routes protégées legacy
 apiRoutes.use(flexibleAuth);
@@ -175,7 +176,8 @@ apiRoutes.use('/batch', requirePermission('write'), batchRoutes);
 apiRoutes.use('/quickbooks', requirePermission('write'), quickbooksRoutes);
 
 // Authentication routes (write permission required)
-apiRoutes.use('/auth', requirePermission('write'), authRoutes);
+// Temporarily disabled to avoid route conflicts
+// apiRoutes.use('/auth', requirePermission('write'), authRoutes);
 
 // Token management routes (write permission required)
 apiRoutes.use('/tokens', requirePermission('write'), tokenManagementRoutes);

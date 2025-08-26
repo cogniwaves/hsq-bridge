@@ -5,67 +5,186 @@
  * Provides tenant-specific operations and state
  */
 
-import { useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from './useAuth';
-import { TenantRole } from '../types/auth';
+import { Tenant, TenantMembership, TenantRole, ApiResponse } from '../types/auth';
+import { authApi } from '../utils/auth';
 
-export function useTenant() {
-  const { tenant, memberships, switchTenant, hasRole } = useAuth();
+interface UseTenantReturn {
+  currentTenant: Tenant | null;
+  memberships: TenantMembership[];
+  isLoading: boolean;
+  error: string | null;
+  switchTenant: (tenantId: string) => Promise<void>;
+  createTenant: (name: string) => Promise<Tenant>;
+  updateTenant: (tenantId: string, data: Partial<Tenant>) => Promise<void>;
+  inviteUser: (email: string, role: TenantRole) => Promise<void>;
+  removeUser: (userId: string) => Promise<void>;
+  updateUserRole: (userId: string, role: TenantRole) => Promise<void>;
+  leaveTenant: (tenantId: string) => Promise<void>;
+}
 
-  // Get current tenant membership
-  const currentMembership = useMemo(() => {
-    if (!tenant) return null;
-    return memberships.find(m => m.tenantId === tenant.id);
-  }, [tenant, memberships]);
+export function useTenant(): UseTenantReturn {
+  const { tenant: currentTenant, memberships, switchTenant: authSwitchTenant } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Get available tenants
-  const availableTenants = useMemo(() => {
-    return memberships.map(m => m.tenant);
-  }, [memberships]);
-
-  // Check if user is tenant owner
-  const isOwner = useMemo(() => {
-    return hasRole(TenantRole.OWNER);
-  }, [hasRole]);
-
-  // Check if user is tenant admin
-  const isAdmin = useMemo(() => {
-    return hasRole(TenantRole.ADMIN);
-  }, [hasRole]);
-
-  // Check if user can manage tenant (owner or admin)
-  const canManageTenant = useMemo(() => {
-    return isOwner || isAdmin;
-  }, [isOwner, isAdmin]);
-
-  // Switch to tenant by slug
-  const switchToTenantBySlug = useCallback(async (slug: string) => {
-    const targetTenant = memberships.find(m => m.tenant.slug === slug);
-    if (targetTenant) {
-      await switchTenant(targetTenant.tenantId);
-    } else {
-      throw new Error(`No access to tenant with slug: ${slug}`);
+  // Switch to a different tenant
+  const switchTenant = useCallback(async (tenantId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await authSwitchTenant(tenantId);
+    } catch (err: any) {
+      setError(err.message || 'Failed to switch tenant');
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
-  }, [memberships, switchTenant]);
+  }, [authSwitchTenant]);
+
+  // Create a new tenant
+  const createTenant = useCallback(async (name: string): Promise<Tenant> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.post<ApiResponse<Tenant>>('/tenants', { name });
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to create tenant');
+      }
+      return response.data.data;
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to create tenant';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Update tenant information
+  const updateTenant = useCallback(async (tenantId: string, data: Partial<Tenant>) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.patch<ApiResponse>(`/tenants/${tenantId}`, data);
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to update tenant');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to update tenant';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Invite a user to the current tenant
+  const inviteUser = useCallback(async (email: string, role: TenantRole) => {
+    if (!currentTenant) {
+      throw new Error('No tenant selected');
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.post<ApiResponse>(
+        `/tenants/${currentTenant.id}/invitations`,
+        { email, role }
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to send invitation');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to send invitation';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTenant]);
+
+  // Remove a user from the current tenant
+  const removeUser = useCallback(async (userId: string) => {
+    if (!currentTenant) {
+      throw new Error('No tenant selected');
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.delete<ApiResponse>(
+        `/tenants/${currentTenant.id}/members/${userId}`
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to remove user');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to remove user';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTenant]);
+
+  // Update a user's role in the current tenant
+  const updateUserRole = useCallback(async (userId: string, role: TenantRole) => {
+    if (!currentTenant) {
+      throw new Error('No tenant selected');
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.patch<ApiResponse>(
+        `/tenants/${currentTenant.id}/members/${userId}`,
+        { role }
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to update user role');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to update user role';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentTenant]);
+
+  // Leave a tenant
+  const leaveTenant = useCallback(async (tenantId: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authApi.post<ApiResponse>(
+        `/tenants/${tenantId}/leave`
+      );
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to leave tenant');
+      }
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.message || 'Failed to leave tenant';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   return {
-    // Current tenant info
-    tenant,
-    currentMembership,
-    currentRole: currentMembership?.role,
-    
-    // Available tenants
-    availableTenants,
-    hasMulitpleTenants: memberships.length > 1,
-    
-    // Permissions
-    isOwner,
-    isAdmin,
-    canManageTenant,
-    hasRole,
-    
-    // Actions
+    currentTenant,
+    memberships,
+    isLoading,
+    error,
     switchTenant,
-    switchToTenantBySlug
+    createTenant,
+    updateTenant,
+    inviteUser,
+    removeUser,
+    updateUserRole,
+    leaveTenant
   };
 }

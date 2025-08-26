@@ -2,149 +2,141 @@
 
 /**
  * Email Verification Page
- * Handles email verification token processing
+ * Verifies user email using token from URL
  */
 
 import { useEffect, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useAuth } from '../../../hooks/useAuth';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { AuthLayout } from '../../../components/auth/AuthLayout';
-import { CheckCircleIcon, XCircleIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
+import { authApi } from '../../../utils/auth';
 
 export default function VerifyEmailPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const { verifyEmail, user } = useAuth();
+  const searchParams = useSearchParams();
   
-  const [status, setStatus] = useState<'loading' | 'success' | 'error' | 'pending'>('pending');
-  const [message, setMessage] = useState('');
+  const token = searchParams.get('token') || '';
   
+  const [isVerifying, setIsVerifying] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
   useEffect(() => {
-    const token = searchParams.get('token');
-    
-    if (token) {
-      handleVerification(token);
+    if (!token) {
+      setError('Invalid or missing verification token');
+      setIsVerifying(false);
+      return;
     }
-  }, [searchParams]);
-  
-  const handleVerification = async (token: string) => {
-    setStatus('loading');
-    
-    try {
-      await verifyEmail(token);
-      setStatus('success');
-      setMessage('Your email has been successfully verified!');
-      
-      // Redirect to dashboard after 3 seconds
-      setTimeout(() => {
-        router.push('/');
-      }, 3000);
-    } catch (error) {
-      setStatus('error');
-      setMessage(error instanceof Error ? error.message : 'Verification failed. Please try again.');
-    }
-  };
-  
-  const resendVerification = async () => {
-    // Implementation for resending verification email
-    setMessage('Verification email has been resent. Please check your inbox.');
-  };
-  
+
+    // Auto-verify on mount
+    const verify = async () => {
+      try {
+        const response = await authApi.post('/auth/verify-email', { token });
+        if (response.data.success) {
+          setSuccess(true);
+          // Redirect to dashboard after 3 seconds
+          setTimeout(() => {
+            router.push('/');
+          }, 3000);
+        } else {
+          throw new Error(response.data.error || 'Failed to verify email');
+        }
+      } catch (err: any) {
+        setError(err.response?.data?.error || err.message || 'Failed to verify email');
+      } finally {
+        setIsVerifying(false);
+      }
+    };
+
+    verify();
+  }, [token, router]);
+
+  if (isVerifying) {
+    return (
+      <AuthLayout
+        title="Verifying Email"
+        subtitle="Please wait while we verify your email address"
+      >
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      </AuthLayout>
+    );
+  }
+
+  if (success) {
+    return (
+      <AuthLayout
+        title="Email Verified"
+        subtitle="Your email has been successfully verified"
+      >
+        <div className="rounded-md bg-green-50 p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-green-800">
+                Email verification successful
+              </p>
+              <p className="mt-2 text-sm text-green-700">
+                You will be redirected to the dashboard in a moment...
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-6 text-center">
+          <Link
+            href="/"
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            Go to dashboard now
+          </Link>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
     <AuthLayout
-      title="Email Verification"
-      subtitle={status === 'pending' ? 'Please check your email' : undefined}
+      title="Verification Failed"
+      subtitle="We couldn't verify your email address"
     >
-      <div className="text-center">
-        {status === 'loading' && (
-          <>
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full" 
-                 style={{ backgroundColor: 'var(--color-primary-container)' }}>
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2"
-                   style={{ borderBottomColor: 'var(--color-primary)' }}></div>
-            </div>
-            <h3 className="mt-4 text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Verifying your email...
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Please wait while we verify your email address.
+      <div className="rounded-md bg-red-50 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-red-800">
+              {error || 'Verification failed'}
             </p>
-          </>
-        )}
+            <p className="mt-2 text-sm text-red-700">
+              The verification link may be expired or invalid. Please request a new verification email.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        <Link
+          href="/auth/resend-verification"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Resend Verification Email
+        </Link>
         
-        {status === 'success' && (
-          <>
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full" 
-                 style={{ backgroundColor: 'var(--color-success-container)' }}>
-              <CheckCircleIcon className="h-6 w-6" style={{ color: 'var(--color-success)' }} />
-            </div>
-            <h3 className="mt-4 text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Email Verified!
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {message}
-            </p>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Redirecting to dashboard...
-            </p>
-          </>
-        )}
-        
-        {status === 'error' && (
-          <>
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full" 
-                 style={{ backgroundColor: 'var(--color-error-container)' }}>
-              <XCircleIcon className="h-6 w-6" style={{ color: 'var(--color-error)' }} />
-            </div>
-            <h3 className="mt-4 text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Verification Failed
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              {message}
-            </p>
-            <button
-              onClick={resendVerification}
-              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{
-                backgroundColor: 'var(--color-primary)',
-                color: 'var(--color-on-primary)'
-              }}
-            >
-              Resend verification email
-            </button>
-          </>
-        )}
-        
-        {status === 'pending' && (
-          <>
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full" 
-                 style={{ backgroundColor: 'var(--color-primary-container)' }}>
-              <EnvelopeIcon className="h-6 w-6" style={{ color: 'var(--color-primary)' }} />
-            </div>
-            <h3 className="mt-4 text-lg font-medium" style={{ color: 'var(--color-text-primary)' }}>
-              Check Your Email
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              We&apos;ve sent a verification link to {user?.email || 'your email address'}.
-            </p>
-            <p className="mt-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Please click the link in the email to verify your account.
-            </p>
-            
-            <div className="mt-6">
-              <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Didn&apos;t receive the email?
-              </p>
-              <button
-                onClick={resendVerification}
-                className="mt-2 text-sm font-medium hover:underline"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                Click here to resend
-              </button>
-            </div>
-          </>
-        )}
+        <Link
+          href="/auth/signin"
+          className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Back to Sign In
+        </Link>
       </div>
     </AuthLayout>
   );

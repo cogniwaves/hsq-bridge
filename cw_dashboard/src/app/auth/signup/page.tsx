@@ -1,21 +1,14 @@
-/**
- * Sign Up Page
- * User registration page with optional tenant creation
- */
+'use client';
 
-import { AuthLayout } from '../../../components/auth/AuthLayout';
 import { SignUpForm } from '../../../components/auth/SignUpForm';
-
-export const metadata = {
-  title: 'Sign Up - HS Bridge Dashboard',
-  description: 'Create a new account to get started with HubSpot-Stripe-QuickBooks Bridge'
-};
+import { AuthLayout } from '../../../components/auth/AuthLayout';
 
 export default function SignUpPage() {
   return (
     <AuthLayout
-      title="Create your account"
-      subtitle="Get started with HS Bridge today."
+      title="Create Account"
+      subtitle="Start managing your invoices and payments"
+      showBackToHome
     >
       <SignUpForm />
     </AuthLayout>

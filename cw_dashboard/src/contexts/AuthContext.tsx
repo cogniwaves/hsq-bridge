@@ -30,7 +30,7 @@ import {
 } from '../utils/auth';
 
 // Create the authentication context
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+export const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 // Authentication Provider Component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
