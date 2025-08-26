@@ -1,11 +1,10 @@
-import { PrismaClient, InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus } from '@prisma/client';
 import { getHubSpotClient, HubSpotInvoiceObject, HubSpotLineItem } from './hubspotClient';
 import { getContactService } from './contactService';
 import { getCompanyService } from './companyService';
 import { logger } from '../utils/logger';
 import { EnhancedInvoiceData, ConvertedLineItemData } from '../types/api';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 export interface EnhancedExtractionStats {
   totalProcessed: number;

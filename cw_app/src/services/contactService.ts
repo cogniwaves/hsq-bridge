@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { HubSpotContact, getHubSpotClient } from './hubspotClient';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 export class ContactService {
   // Create or update a contact from HubSpot data

@@ -1,12 +1,11 @@
-import { PrismaClient, Platform } from '@prisma/client';
+import { Platform } from '@prisma/client';
 import { createHash, createHmac } from 'crypto';
 import { logger } from '../utils/logger';
 import { getNormalizedInvoiceExtractor } from './normalizedInvoiceExtractor';
 import { getContactService } from './contactService';
 import { getCompanyService } from './companyService';
 import { getHubSpotClient } from './hubspotClient';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 export interface HubSpotWebhookEvent {
   eventId: string;

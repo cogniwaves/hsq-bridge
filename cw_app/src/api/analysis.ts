@@ -8,8 +8,7 @@ export const analysisRoutes = Router();
 // SQL validation queries endpoint
 analysisRoutes.get('/sql-validation', (async (req, res) => {
   try {
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
+    const { prisma } = await import('../index');
     
     // Run multiple validation queries
     const results = {} as Record<string, any>;
@@ -101,8 +100,7 @@ analysisRoutes.get('/sql-validation', (async (req, res) => {
 // Analyze tax breakdown patterns in our data
 analysisRoutes.get('/tax-breakdown-analysis', (async (req, res) => {
   try {
-    const { PrismaClient } = await import('@prisma/client');
-    const prisma = new PrismaClient();
+    const { prisma } = await import('../index');
     
     // Get all unique tax labels and rates
     const taxPatterns = await prisma.$queryRaw`

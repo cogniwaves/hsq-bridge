@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { HubSpotCompany, getHubSpotClient } from './hubspotClient';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../index';
 
 export class CompanyService {
   // Create or update a company from HubSpot data

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
 import { TokenRefreshScheduler } from '../services/auth/refreshScheduler';
 import { TokenManager, TokenRefreshConfig } from '../services/auth/tokenManager';
@@ -8,9 +7,9 @@ import { asyncHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { createSuccessResponse, createErrorResponse } from '../utils/responses';
 import { CryptoUtils } from '../utils/crypto';
+import { prisma } from '../index';
 
 const router = Router();
-const prisma = new PrismaClient();
 let redis: Redis | null = null;
 
 // Initialize token refresh scheduler
