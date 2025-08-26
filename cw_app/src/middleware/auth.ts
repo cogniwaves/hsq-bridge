@@ -1,14 +1,28 @@
 // Middleware d'authentification basique pour l'API
 import { Request, Response, NextFunction } from 'express';
+import { User, Tenant, TenantMembership } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { extractTokenFromHeader, verifyAccessToken } from '../utils/auth/jwtUtils';
+import { sessionService } from '../services/auth/sessionService';
 
 // Interface pour le request avec utilisateur authentifié
 export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
-    type: 'api_key' | 'basic_auth';
+    type: 'api_key' | 'basic_auth' | 'jwt';
     permissions?: string[];
   };
+  // JWT-specific auth context
+  auth?: {
+    userId: string;
+    email: string;
+    sessionId?: string;
+    isSuperAdmin?: boolean;
+    type: 'jwt';
+  };
+  userDetails?: User;
+  tenant?: Tenant;
+  membership?: TenantMembership;
 }
 
 // Configuration des clés API (en production, utiliser des variables d'environnement)
@@ -125,12 +139,66 @@ export function basicAuth(req: AuthenticatedRequest, res: Response, next: NextFu
   }
 }
 
-// Middleware combiné (API Key OU Basic Auth)
+// JWT authentication middleware
+export async function jwtAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.header('Authorization');
+    const token = extractTokenFromHeader(authHeader);
+
+    if (!token) {
+      res.status(401).json({
+        success: false,
+        error: 'JWT token required',
+        message: 'Provide Bearer token in Authorization header',
+        timestamp: new Date().toISOString(),
+      });
+      return;
+    }
+
+    // Verify token and get session info
+    const sessionInfo = await sessionService.validateSession(token);
+
+    // Add auth context to request
+    req.auth = {
+      userId: sessionInfo.user.id,
+      email: sessionInfo.user.email,
+      sessionId: sessionInfo.session.id,
+      isSuperAdmin: sessionInfo.user.isSuperAdmin,
+      type: 'jwt',
+    };
+
+    req.user = {
+      id: sessionInfo.user.id,
+      type: 'jwt',
+      permissions: determinePermissionsFromRole(sessionInfo.membership?.role),
+    };
+
+    req.userDetails = sessionInfo.user;
+    req.tenant = sessionInfo.tenant;
+    req.membership = sessionInfo.membership;
+
+    next();
+  } catch (error) {
+    logger.warn('JWT authentication failed', { error: error.message, ip: req.ip });
+    res.status(401).json({
+      success: false,
+      error: 'Invalid or expired token',
+      timestamp: new Date().toISOString(),
+    });
+  }
+}
+
+// Middleware combiné (JWT, API Key OU Basic Auth)
 export function flexibleAuth(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
+  const authHeader = req.header('Authorization');
   const hasApiKey = req.header('X-API-Key') || req.query.api_key;
-  const hasBasicAuth = req.header('Authorization')?.startsWith('Basic ');
+  const hasBasicAuth = authHeader?.startsWith('Basic ');
+  const hasBearerToken = authHeader?.startsWith('Bearer ');
   
-  if (hasApiKey) {
+  // Prefer JWT if Bearer token is present
+  if (hasBearerToken) {
+    return jwtAuth(req, res, next) as any;
+  } else if (hasApiKey) {
     return apiKeyAuth(req, res, next);
   } else if (hasBasicAuth) {
     return basicAuth(req, res, next);
@@ -138,8 +206,9 @@ export function flexibleAuth(req: AuthenticatedRequest, res: Response, next: Nex
     res.status(401).json({
       success: false,
       error: 'Authentication required',
-      message: 'Provide either X-API-Key header or Basic authentication',
+      message: 'Provide Bearer token, API key, or Basic authentication',
       options: {
+        jwt: 'Add Authorization: Bearer <token> header',
         apiKey: 'Add X-API-Key header with your API key',
         basicAuth: 'Add Authorization: Basic <base64(username:password)> header'
       },
@@ -193,6 +262,22 @@ export function webhookAuth(req: Request, res: Response, next: NextFunction): vo
   next();
 }
 
+// Helper function to determine permissions from role
+function determinePermissionsFromRole(role?: string): string[] {
+  switch (role) {
+    case 'OWNER':
+      return ['read', 'write', 'admin', 'delete'];
+    case 'ADMIN':
+      return ['read', 'write', 'admin'];
+    case 'MEMBER':
+      return ['read', 'write'];
+    case 'VIEWER':
+      return ['read'];
+    default:
+      return [];
+  }
+}
+
 // Middleware de logging des requêtes authentifiées
 export function logAuthenticatedRequest(req: AuthenticatedRequest, res: Response, next: NextFunction): void {
   if (req.user) {
@@ -200,9 +285,55 @@ export function logAuthenticatedRequest(req: AuthenticatedRequest, res: Response
       userId: req.user.id,
       authType: req.user.type,
       permissions: req.user.permissions,
+      tenantId: req.tenant?.id,
       ip: req.ip,
       userAgent: req.header('User-Agent')
     });
   }
   next();
 }
+
+// Enhanced permission checking with tenant context
+export function requireTenantPermission(permission: string) {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    // Super admin bypass
+    if (req.auth?.isSuperAdmin) {
+      next();
+      return;
+    }
+
+    // Check if user has required permission
+    if (!req.user.permissions?.includes(permission) && !req.user.permissions?.includes('admin')) {
+      res.status(403).json({
+        success: false,
+        error: 'Insufficient permissions',
+        required: permission,
+        provided: req.user.permissions,
+        tenantRole: req.membership?.role,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    
+    next();
+  };
+}
+
+// Export JWT-specific middleware from jwtAuth module
+export { 
+  requireTenantRole,
+  requireTenant,
+  requireSuperAdmin,
+  tenantIsolation,
+  perUserRateLimit,
+  auditLog 
+} from './jwtAuth';
