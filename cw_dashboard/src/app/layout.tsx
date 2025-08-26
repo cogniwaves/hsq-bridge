@@ -4,6 +4,8 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { ThemeProvider } from '../design-system/themes/themeProvider';
 import { ThemeToggle } from '../design-system/components/ThemeToggle';
+import { UserfrontAuthProvider } from '../contexts/UserfrontAuthContext';
+import { UserfrontUserMenu } from '../components/user/UserfrontUserMenu';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -15,7 +17,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ThemeProvider defaultMode="system" enableTransitions>
+        <UserfrontAuthProvider
+          loginUrl="/auth/signin"
+          loginRedirect="/"
+          signupRedirect="/"
+          logoutRedirect="/auth/signin"
+          requireAuth={false}
+        >
+          <ThemeProvider defaultMode="system" enableTransitions>
           <div 
             className="min-h-screen transition-colors duration-300"
             style={{ backgroundColor: 'var(--color-background)' }}
@@ -49,6 +58,7 @@ export default function RootLayout({
                       showTooltip 
                       includeSystem 
                     />
+                    <UserfrontUserMenu />
                   </div>
                 </div>
               </div>
@@ -58,7 +68,8 @@ export default function RootLayout({
               {children}
             </main>
           </div>
-        </ThemeProvider>
+          </ThemeProvider>
+        </UserfrontAuthProvider>
       </body>
     </html>
   );

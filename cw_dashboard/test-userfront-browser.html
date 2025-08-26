@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Userfront Authentication Test</title>
+    <script src="https://cdn.userfront.com/core.js"></script>
+</head>
+<body>
+    <h1>Userfront Authentication Debug</h1>
+    <div id="status">Loading...</div>
+    <div id="output" style="white-space: pre-wrap; font-family: monospace; background: #f0f0f0; padding: 20px; margin-top: 20px;"></div>
+
+    <script>
+        const WORKSPACE_ID = '8nwx667b';
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+
+        function log(message, data = null) {
+            const timestamp = new Date().toISOString();
+            let logEntry = `[${timestamp}] ${message}`;
+            if (data !== null) {
+                logEntry += '\n' + JSON.stringify(data, null, 2);
+            }
+            output.innerHTML += logEntry + '\n\n';
+            console.log(message, data);
+        }
+
+        async function runTests() {
+            try {
+                status.textContent = 'Running tests...';
+                log('Starting Userfront Authentication Test');
+                log('Workspace ID:', WORKSPACE_ID);
+
+                // Initialize Userfront
+                log('Initializing Userfront...');
+                Userfront.init(WORKSPACE_ID);
+                log('Userfront initialized successfully');
+
+                // Check initial state
+                log('Initial state:', {
+                    user: Userfront.user,
+                    isLoggedIn: Userfront.isLoggedIn,
+                    tokens: Userfront.tokens
+                });
+
+                // Test login (you'll need to update credentials)
+                const testEmail = 'hsqba@ste-marie.ca';
+                const testPassword = prompt('Enter password for ' + testEmail + ':');
+
+                if (testPassword) {
+                    log('Attempting login...');
+                    try {
+                        const response = await Userfront.login({
+                            method: 'password',
+                            email: testEmail,
+                            password: testPassword,
+                            redirect: false
+                        });
+
+                        log('Login response:', response);
+                        log('Post-login state:', {
+                            user: Userfront.user,
+                            isLoggedIn: Userfront.isLoggedIn,
+                            tokens: Userfront.tokens,
+                            hasAccessToken: !!Userfront.tokens?.accessToken
+                        });
+
+                        if (Userfront.tokens?.accessToken) {
+                            status.textContent = '✅ SUCCESS: Authentication working!';
+                            log('✅ SUCCESS: Access token received');
+                        } else {
+                            status.textContent = '❌ FAILURE: No access token received';
+                            log('❌ FAILURE: No access token in response');
+                        }
+                    } catch (error) {
+                        status.textContent = '❌ Login failed';
+                        log('❌ Login error:', {
+                            message: error.message,
+                            stack: error.stack
+                        });
+                    }
+                } else {
+                    status.textContent = 'Test cancelled';
+                    log('Test cancelled - no password provided');
+                }
+
+            } catch (error) {
+                status.textContent = '❌ Test failed';
+                log('❌ Fatal error:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+            }
+        }
+
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>

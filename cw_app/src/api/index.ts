@@ -15,7 +15,7 @@ import { quickbooksRoutes } from './quickbooks';
 import { authRoutes } from './auth';
 import { tokenManagementRoutes } from './tokenManagement';
 // New multi-tenant authentication routes
-// import { userAuthRoutes } from './userAuth';
+import { userAuthRoutes } from './userAuth';
 // import { tenantRoutes } from './tenants';
 // import { invitationRoutes } from './invitations';
 import { ApiHandler } from '../types/api';
@@ -141,8 +141,7 @@ apiRoutes.get('/health', rateLimits.public, ((req, res) => {
 
 // New Multi-Tenant Authentication Routes (before flexibleAuth middleware)
 // These routes handle their own authentication internally
-// Temporarily disabled for deployment stability
-// apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
+apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
 // apiRoutes.use('/tenants', tenantRoutes); // Tenant management endpoints  
 // apiRoutes.use('/invitations', invitationRoutes); // Invitation system endpoints
 

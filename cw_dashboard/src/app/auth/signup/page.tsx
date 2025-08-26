@@ -1,6 +1,6 @@
 'use client';
 
-import { SignUpForm } from '../../../components/auth/SignUpForm';
+import { UserfrontSignUpForm } from '../../../components/auth/UserfrontSignUpForm';
 import { AuthLayout } from '../../../components/auth/AuthLayout';
 
 export default function SignUpPage() {
@@ -10,7 +10,7 @@ export default function SignUpPage() {
       subtitle="Start managing your invoices and payments"
       showBackToHome
     >
-      <SignUpForm />
+      <UserfrontSignUpForm />
     </AuthLayout>
   );
 }

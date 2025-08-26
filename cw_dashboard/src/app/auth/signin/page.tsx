@@ -1,6 +1,6 @@
 'use client';
 
-import { SignInForm } from '../../../components/auth/SignInForm';
+import { UserfrontSignInForm } from '../../../components/auth/UserfrontSignInForm';
 import { AuthLayout } from '../../../components/auth/AuthLayout';
 
 export default function SignInPage() {
@@ -10,7 +10,7 @@ export default function SignInPage() {
       subtitle="Welcome back to HSQ Bridge"
       showBackToHome
     >
-      <SignInForm />
+      <UserfrontSignInForm />
     </AuthLayout>
   );
 }

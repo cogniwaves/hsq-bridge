@@ -10,8 +10,7 @@ RUN apk add --no-cache curl libc6-compat
 COPY package*.json ./
 
 # Install dependencies with optimizations
-RUN npm ci --only=production && \
-    npm ci --only=development && \
+RUN npm ci && \
     npm cache clean --force
 
 # Copy source code and configs

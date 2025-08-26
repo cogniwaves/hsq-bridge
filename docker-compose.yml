@@ -95,13 +95,13 @@ services:
     environment:
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-      NEXT_PUBLIC_API_URL: http://cw_hsq_app:3000
+      NEXT_PUBLIC_API_URL: http://localhost:13000
+      NEXT_PUBLIC_USERFRONT_WORKSPACE_ID: ${NEXT_PUBLIC_USERFRONT_WORKSPACE_ID:-8nwx667b}
       PORT: 3000
     ports:
       - "13001:3000"
     depends_on:
-      cw_hsq_app:
-        condition: service_healthy
+      - cw_hsq_app
     networks:
       - cw_hsq_network
     restart: unless-stopped

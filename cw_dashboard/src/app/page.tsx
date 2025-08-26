@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { UserfrontProtectedRoute } from '../components/auth/UserfrontProtectedRoute';
 
 export default function Dashboard() {
   return (
-    <div 
-      className="min-h-screen transition-colors duration-300"
-      style={{ backgroundColor: 'var(--color-background)' }}
-    >
+    <UserfrontProtectedRoute>
+      <div 
+        className="min-h-screen transition-colors duration-300"
+        style={{ backgroundColor: 'var(--color-background)' }}
+      >
       <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
           <div className="text-center">
@@ -181,6 +183,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </UserfrontProtectedRoute>
   );
 }
