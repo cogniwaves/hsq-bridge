@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a production-ready HubSpot-Stripe-QuickBooks bridge system for bidirectional invoice and payment synchronization. The system is currently in Phase 1.5 with full HubSpot invoice extraction capabilities, enhanced tax support, OAuth token refresh implementation, and real-time webhook processing.
+This is a production-ready HubSpot-Stripe-QuickBooks bridge system for bidirectional invoice and payment synchronization. The system is currently in Phase 1.6 with complete database schema standardization, full HubSpot invoice extraction capabilities, enhanced tax support, OAuth token refresh implementation, and real-time webhook processing.
 
 ## Technology Stack
 
@@ -122,28 +122,36 @@ make redis-cli              # Access Redis CLI
 ```
 
 ### Database Schema Design
-The system uses a normalized PostgreSQL schema with the following core tables:
+The system uses a fully normalized PostgreSQL schema with comprehensive field coverage and proper relationships:
 
-#### Core Business Tables
-- **invoice_mapping**: Central invoice records with HubSpot, Stripe, QuickBooks IDs
+#### Core Business Tables (Enhanced Schema - Phase 1.6)
+- **invoice_mapping** (36 columns): Complete invoice records with HubSpot, Stripe, QuickBooks IDs
+  - Enhanced with 15+ additional fields: hubspotRawData, balanceDue, firstSyncAt
+  - Full timestamp tracking: hubspotCreatedAt, invoiceSentAt, fullyPaidAt
+  - Metadata fields: syncSource, hubspotObjectId, detectedCurrency
 - **line_items**: Product-level invoice details with tax information  
 - **tax_summary**: Aggregated tax calculations by invoice
-- **payment_mapping**: Payment records across platforms
+- **payment_mapping**: Payment records across platforms with full synchronization tracking
 - **invoice_payments**: Many-to-many invoice-payment relationships
 
-#### Entity Management  
-- **contacts/companies**: Normalized entity storage (single source of truth)
-- **invoice_associations**: Many-to-many relationships between invoices and entities
+#### Entity Management (Standardized)
+- **contacts/companies**: Normalized entity storage with lastSyncAt tracking
+- **invoice_associations**: Many-to-many relationships with proper unique constraints
 
-#### System Infrastructure
+#### System Infrastructure (Optimized)
 - **webhook_events**: Real-time event processing with retry logic
-- **sync_logs**: Complete audit trail for all synchronization operations
+- **sync_logs**: Complete audit trail with proper foreign key relationships (no more polymorphic issues)
 - **sync_watermarks**: Track incremental sync progress by entity type
 - **quickbooks_transfer_queue**: Approval workflow for QuickBooks transfers
 
 #### Security & Authentication
 - **oauth_tokens**: Encrypted OAuth token storage with refresh capabilities
 - **token_refresh_logs**: Audit trail for all token refresh operations
+
+#### Performance & Analytics (New)
+- **mv_invoice_summary**: Materialized view for real-time analytics
+- **15+ Performance Indexes**: Optimized for common query patterns
+- **Data Integrity Constraints**: Check constraints and validation rules
 
 ### API Integration Services
 
@@ -251,6 +259,17 @@ API_KEY_WEBHOOK=webhook-processing-key
 - Comprehensive OAuth token refresh system for QuickBooks integration
 - Encrypted token storage with automatic refresh scheduling
 - Token refresh audit trail and monitoring
+
+### Phase 1.6 ✅ Complete (December 2024)
+- **Complete Database Schema Standardization**: Fixed all schema discrepancies identified in analysis
+- **InvoiceMapping Model Enhancement**: Added 15+ missing fields (hubspotRawData, balanceDue, firstSyncAt, etc.)
+- **Contact/Company Model Updates**: Added missing lastSyncAt fields for proper sync tracking
+- **SyncLog Relationship Fixes**: Replaced invalid polymorphic relationships with proper foreign keys
+- **Service Layer Standardization**: Unified Prisma client imports across 8+ service files
+- **Performance Optimization**: Added 15+ database indexes and materialized views for analytics
+- **Data Integrity**: Implemented comprehensive check constraints and validation rules
+- **Migration Safety**: Preserved all existing production data during schema updates
+- **Documentation**: Complete DATABASE_SCHEMA.md and DATABASE_DISCREPANCY.md analysis
 
 ### Phase 2 📋 Planned
 - Stripe payment integration with webhook processing

@@ -1,6 +1,10 @@
 # Database Schema Documentation - cw_app Perspective
 
-This document describes how the `cw_app` application sees and interacts with the PostgreSQL database through Prisma ORM.
+**Status**: ✅ **Current and Accurate** (Updated December 26, 2024 - Phase 1.6)  
+**Last Schema Migration**: `20241226_complete_schema_fixes.sql`  
+**Schema Validation**: All discrepancies resolved, 36 columns in InvoiceMapping, proper relationships established
+
+This document describes how the `cw_app` application sees and interacts with the PostgreSQL database through Prisma ORM. This documentation reflects the current production state after comprehensive schema standardization.
 
 ## Database Architecture Overview
 
@@ -31,43 +35,81 @@ The Prisma client is exported from the main application and imported across serv
 
 ```prisma
 model InvoiceMapping {
-  id                   String    @id @default(uuid())
-  hubspotDealId        String?   @map("hubspot_deal_id")
-  hubspotInvoiceId     String?   @map("hubspot_invoice_id")
-  quickbooksInvoiceId  String?   @map("quickbooks_invoice_id")
-  stripeInvoiceId      String?   @map("stripe_invoice_id")
-  totalAmount          Decimal   @map("total_amount")
-  currency             String    @default("USD")
-  status               InvoiceStatus
-  clientEmail          String?   @map("client_email")
-  clientName           String?   @map("client_name")
-  dueDate              DateTime? @map("due_date")
-  issueDate            DateTime? @map("issue_date")
-  description          String?
+  id                                             String               @id @default(uuid())
+  hubspotDealId                                  String?              @map("hubspot_deal_id")
+  hubspotInvoiceId                               String?              @map("hubspot_invoice_id")
+  quickbooksInvoiceId                            String?              @map("quickbooks_invoice_id")
+  stripeInvoiceId                                String?              @map("stripe_invoice_id")
+  totalAmount                                    Decimal              @map("total_amount")
+  currency                                       String               @default("USD")
+  status                                         InvoiceStatus
+  clientEmail                                    String?              @map("client_email")
+  clientName                                     String?              @map("client_name")
+  dueDate                                        DateTime?            @map("due_date")
+  issueDate                                      DateTime?            @map("issue_date")
+  description                                    String?
   
-  // Enhanced fields
-  detectedCurrency     String?   @map("detected_currency")
-  lineItemsCount       Int       @default(0) @map("line_items_count")
+  // Core business fields
+  balanceDue                                     Decimal?             @map("balance_due")
+  subtotal                                       Decimal?
+  hubspotInvoiceNumber                           String?              @map("hubspot_invoice_number")
   
-  // Timestamps
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-  lastSyncAt           DateTime? @map("last_sync_at")
+  // Enhanced fields  
+  detectedCurrency                               String?              @map("detected_currency")
+  lineItemsCount                                 Int                  @default(0) @map("line_items_count")
+  hubspotRawData                                 Json?                @map("hubspot_raw_data")
+  
+  // HubSpot timestamps (Phase 1.6)
+  hubspotCreatedAt                               DateTime?            @map("hubspot_created_at")
+  hubspotModifiedAt                              DateTime?            @map("hubspot_modified_at")
+  hubspotClosedAt                                DateTime?            @map("hubspot_closed_at")
+  
+  // Business timestamps (Phase 1.6)
+  invoiceSentAt                                  DateTime?            @map("invoice_sent_at")
+  paymentDueDate                                 DateTime?            @map("payment_due_date")
+  firstPaymentAt                                 DateTime?            @map("first_payment_at")
+  fullyPaidAt                                    DateTime?            @map("fully_paid_at")
+  
+  // System timestamps (Phase 1.6)
+  firstSyncAt                                    DateTime?            @map("first_sync_at")
+  lastWebhookAt                                  DateTime?            @map("last_webhook_at")
+  lastPeriodicCheckAt                            DateTime?            @map("last_periodic_check_at")
+  lastSyncAt                                     DateTime?            @map("last_sync_at")
+  createdAt                                      DateTime             @default(now()) @map("created_at")
+  updatedAt                                      DateTime             @updatedAt @map("updated_at")
+  
+  // Metadata fields (Phase 1.6)
+  hubspotObjectId                                String?              @map("hubspot_object_id")
+  hubspotObjectType                              String?              @map("hubspot_object_type")
+  syncSource                                     String?              @map("sync_source")
+  
+  // Multi-tenancy
+  tenant_id                                      String
   
   // Relations
-  payments             InvoicePayment[]
-  syncLogs             SyncLog[]
-  associations         InvoiceAssociation[]
-  lineItems            LineItem[]
-  taxSummary           TaxSummary?
+  associations                                   InvoiceAssociation[]
+  payments                                       InvoicePayment[]
+  lineItems                                      LineItem[]
+  syncLogs                                       SyncLog[]
+  taxSummary                                     TaxSummary?
+
+  @@unique([tenant_id, hubspotInvoiceId])
+  @@unique([tenant_id, quickbooksInvoiceId])
+  @@unique([tenant_id, stripeInvoiceId])
+  @@index([tenant_id])
+  @@index([tenant_id, status])
+  @@map("invoice_mapping")
 }
 ```
 
-**Key Features**:
-- Cross-platform ID mapping (HubSpot, QuickBooks, Stripe)
-- Rich timestamp tracking for business and technical events
-- Raw HubSpot data storage for debugging and future reference
-- Currency detection from line items analysis
+**Key Features (Phase 1.6 - Complete Schema)**:
+- **36 Total Columns**: Complete field coverage addressing all identified discrepancies
+- **Cross-platform ID mapping**: HubSpot, QuickBooks, Stripe with proper unique constraints  
+- **Comprehensive timestamps** (12 fields): HubSpot events, business milestones, system tracking
+- **Rich metadata**: Raw HubSpot data, sync sources, object references for debugging
+- **Business intelligence**: Balance tracking, currency detection, automated line item counting
+- **Multi-tenant support**: Proper tenant_id field with indexes for performance
+- **Data integrity**: Check constraints for amounts, proper foreign key relationships
 
 ## Core Tables
 
