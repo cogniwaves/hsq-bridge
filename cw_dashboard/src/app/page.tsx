@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { useAuth } from '../hooks/useAuth';
+import { authApi } from '../utils/auth';
 import { ChartBarIcon, CurrencyDollarIcon, DocumentTextIcon, ExclamationTriangleIcon, ClockIcon, CheckCircleIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 interface DashboardData {
@@ -110,7 +113,7 @@ interface HealthStatus {
   uptime: number;
 }
 
-export default function Dashboard() {
+function DashboardContent() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [invoiceQueue, setInvoiceQueue] = useState<InvoiceQueueItem[]>([]);
@@ -147,22 +150,11 @@ export default function Dashboard() {
     return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:13000';
   };
 
-  // Authentication helper
-  const getAuthHeaders = () => {
-    return {
-      'Authorization': 'Basic ' + btoa('admin:admin123'),
-      'Content-Type': 'application/json'
-    };
-  };
-
   const fetchDashboardData = async () => {
     try {
-      const response = await fetch(`${getApiUrl()}/api/dashboard/overview`, {
-        headers: getAuthHeaders()
-      });
-      if (!response.ok) throw new Error('Failed to fetch dashboard data');
-      const data = await response.json();
-      setDashboardData(data);
+      const response = await authApi.get('/dashboard/overview');
+      if (!response.data) throw new Error('Failed to fetch dashboard data');
+      setDashboardData(response.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     }
@@ -170,10 +162,9 @@ export default function Dashboard() {
 
   const fetchHealthStatus = async () => {
     try {
-      const response = await fetch(`${getApiUrl()}/api/health`);
-      if (!response.ok) throw new Error('Failed to fetch health status');
-      const data = await response.json();
-      setHealthStatus(data);
+      const response = await authApi.get('/health');
+      if (!response.data) throw new Error('Failed to fetch health status');
+      setHealthStatus(response.data);
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -183,11 +174,9 @@ export default function Dashboard() {
 
   const fetchComprehensiveSyncStatus = async () => {
     try {
-      const response = await fetch(`${getApiUrl()}/api/invoices/sync-status/comprehensive`, {
-        headers: getAuthHeaders()
-      });
-      if (response.ok) {
-        const data = await response.json();
+      const response = await authApi.get('/invoices/sync-status/comprehensive');
+      if (response.data) {
+        const data = response.data;
         if (data.success && data.syncStatus) {
           setComprehensiveSyncStatus(data.syncStatus);
         }
@@ -200,15 +189,9 @@ export default function Dashboard() {
   const processTransferQueueChanges = async () => {
     setQueueLoading(true);
     try {
-      const response = await fetch(`${getApiUrl()}/api/quickbooks/queue/process-changes`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await authApi.post('/quickbooks/queue/process-changes');
       
-      if (response.ok) {
+      if (response.data) {
         // Refresh the sync status after processing
         await fetchComprehensiveSyncStatus();
         console.log('Transfer queue changes processed successfully');
@@ -231,11 +214,9 @@ export default function Dashboard() {
         (async () => {
           try {
             // Get invoices that need QuickBooks sync
-            const response = await fetch(`${getApiUrl()}/api/invoices/queue/quickbooks?limit=50`, {
-              headers: getAuthHeaders()
-            });
-            if (response.ok) {
-              const data = await response.json();
+            const response = await authApi.get('/invoices/queue/quickbooks?limit=50');
+            if (response.data) {
+              const data = response.data;
               if (data.success && data.invoices) {
                 setInvoiceQueue(data.invoices);
               }
@@ -316,11 +297,9 @@ export default function Dashboard() {
   const fetchInvoiceDetails = async (invoiceId: string) => {
     setDetailsLoading(true);
     try {
-      const response = await fetch(`${getApiUrl()}/api/invoices/${invoiceId}/details`, {
-        headers: getAuthHeaders()
-      });
-      if (response.ok) {
-        const data = await response.json();
+      const response = await authApi.get(`/invoices/${invoiceId}/details`);
+      if (response.data) {
+        const data = response.data;
         if (data.success) {
           setInvoiceDetails(data.invoice);
         }
@@ -348,13 +327,10 @@ export default function Dashboard() {
     setSyncingInvoices(prev => new Set(prev).add(invoiceId));
     
     try {
-      const response = await fetch(`${getApiUrl()}/api/invoices/${invoiceId}/sync`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
+      const response = await authApi.post(`/invoices/${invoiceId}/sync`);
       
-      if (response.ok) {
-        const data = await response.json();
+      if (response.data) {
+        const data = response.data;
         if (data.success) {
           // Update the invoice in the queue to mark it as synced
           setInvoiceQueue(prev => prev.map(invoice => 
@@ -408,13 +384,10 @@ export default function Dashboard() {
     try {
       // First, extract any new invoices from HubSpot
       console.log('Extracting new invoices from HubSpot...');
-      const extractResponse = await fetch(`${getApiUrl()}/api/extract/hubspot-invoices-enhanced`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
+      const extractResponse = await authApi.post('/extract/hubspot-invoices-enhanced');
       
-      if (extractResponse.ok) {
-        const extractData = await extractResponse.json();
+      if (extractResponse.data) {
+        const extractData = extractResponse.data;
         console.log('Extraction completed:', extractData.data);
         
         // Show user feedback about extraction results
@@ -482,7 +455,8 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <ProtectedRoute requireTenant={true}>
+      <div className="space-y-6">
       {/* Header */}
       <div className="md:flex md:items-center md:justify-between">
         <div className="flex-1 min-w-0">
@@ -1480,6 +1454,11 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </ProtectedRoute>
   );
+}
+
+export default function Dashboard() {
+  return <DashboardContent />;
 }
