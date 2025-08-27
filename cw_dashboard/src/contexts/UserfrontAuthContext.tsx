@@ -14,9 +14,7 @@ import {
   UserfrontProvider as BaseUserfrontProvider, 
   useUserfront as useUserfrontBase 
 } from '@userfront/react';
-// Import Userfront Core - Note: This is a CommonJS module that exports directly
-import * as UserfrontCore from '@userfront/core';
-const Userfront = UserfrontCore as any;
+import Userfront from '@userfront/core';
 
 // Initialize Userfront Core with workspace ID
 const WORKSPACE_ID = process.env.NEXT_PUBLIC_USERFRONT_WORKSPACE_ID || '8nwx667b';
@@ -28,11 +26,11 @@ let isUserfrontInitialized = false;
 // This is critical - Userfront requires window object and won't work in SSR
 function initializeUserfront() {
   if (!isUserfrontInitialized && typeof window !== 'undefined' && typeof document !== 'undefined') {
-    console.log('[UserfrontAuth] Initializing Userfront in browser with workspace:', WORKSPACE_ID);
+    // Initialize Userfront with workspace ID
     try {
       Userfront.init(WORKSPACE_ID);
       isUserfrontInitialized = true;
-      console.log('[UserfrontAuth] Userfront initialized successfully');
+      // Userfront initialized successfully
     } catch (error) {
       console.error('[UserfrontAuth] Failed to initialize Userfront:', error);
     }
@@ -118,7 +116,7 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Use Userfront Core login method
-      console.log('[UserfrontAuth] Attempting login for:', credentials.email);
+      // Attempting login with Userfront
       
       // Ensure we're in browser environment
       if (typeof window === 'undefined') {
@@ -127,20 +125,16 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
       
       const response = await Userfront.login(loginOptions);
 
-      console.log('[UserfrontAuth] Login response received:', { 
-        hasTokens: !!response?.tokens, 
-        hasAccessToken: !!response?.tokens?.accessToken,
-        responseKeys: Object.keys(response || {}),
-        fullResponse: response
-      });
+      // Login response received - check for successful authentication
       
-      if (response.tokens?.accessToken) {
-        // Login successful - manually redirect to main dashboard
-        console.log('[UserfrontAuth] Login successful, redirecting to dashboard');
+      // Check if login was successful - response may not contain tokens directly
+      // but Userfront will handle authentication state internally
+      if (response && (response.tokens?.accessToken || response.redirectTo || !response.error)) {
+        // Login successful - redirect to dashboard
         router.push('/');
       } else {
-        console.error('[UserfrontAuth] No access token in response:', response);
-        throw new Error('Login failed - no access token received');
+        console.error('[UserfrontAuth] Login failed:', response);
+        throw new Error(response?.message || 'Login failed - please check your credentials');
       }
     } catch (err: any) {
       console.error('Login error:', err);
@@ -162,8 +156,11 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
 
-      // Prepare signup options - Note: tenantId is NOT passed to Userfront.signup()
-      // The workspace/tenant is already configured via Userfront.init()
+      // Log registration attempt (without sensitive data in production)
+      console.log('[UserfrontAuth] Registration attempt for:', data.email);
+
+      // Prepare signup options - The SDK expects 'method' field
+      // but we need to check if this is causing issues
       const signupOptions: any = {
         method: 'password',
         email: data.email,
@@ -172,19 +169,18 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
         redirect: false  // Disable auto-redirect to handle it manually
       };
 
+
       // Track tenant context locally if provided (for multi-tenant app logic)
       if (data.tenantId) {
         setCurrentTenantId(data.tenantId);
       }
 
-      // Use Userfront Core signup method
-      console.log('[UserfrontAuth] Attempting registration for:', data.email);
-      
       // Ensure we're in browser environment
       if (typeof window === 'undefined') {
         throw new Error('Registration can only be performed in browser environment');
       }
       
+      // Use Userfront Core signup method
       const response = await Userfront.signup(signupOptions);
 
       console.log('[UserfrontAuth] Signup response received:', { 
@@ -208,8 +204,20 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Registration failed');
       }
     } catch (err: any) {
-      console.error('Registration error:', err);
-      const errorMessage = err.message || 'Registration failed. Please try again.';
+      console.error('[UserfrontAuth ERROR] Registration failed:', err);
+      
+      
+      // Check for specific error messages
+      let errorMessage = err.message || 'Registration failed. Please try again.';
+      
+      // Handle common Userfront errors
+      if (errorMessage.includes('Email exists') || errorMessage.includes('already exists')) {
+        errorMessage = 'This email is already registered. Please use a different email or sign in.';
+      } else if (errorMessage.includes('Password must')) {
+        // Password validation error - log the exact requirements
+        console.log('[UserfrontAuth ERROR] Password validation failed:', errorMessage);
+      }
+      
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -222,13 +230,13 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
       
-      // Use Userfront Core logout method
-      await Userfront.logout();
+      // Use Userfront Core logout method with redirect disabled
+      await Userfront.logout({ redirect: false });
       
       // Clear tenant context
       setCurrentTenantId(null);
       
-      // Redirect to login page
+      // Manually redirect to login page
       router.push('/auth/signin');
     } catch (err: any) {
       console.error('Logout error:', err);

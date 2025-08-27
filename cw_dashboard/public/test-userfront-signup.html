@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Userfront Signup</title>
+    <script src="https://cdn.userfront.com/core.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #45a049;
+        }
+        .error {
+            color: red;
+            background: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .debug {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <h1>Userfront Signup Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Configuration</h2>
+        <div class="debug">
+Workspace ID: 8nwx667b
+Password: vtp.keg.gmu1WFR6cyg (19 characters)
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Original Password with Unique Email</h2>
+        <button class="test-button" onclick="testOriginalPassword()">Test Original Password</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Existing Email (hsbb@ste-marie.ca)</h2>
+        <button class="test-button" onclick="testExistingEmail()">Test Existing Email</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Custom Email & Password</h2>
+        <div>
+            <input type="email" id="custom-email" placeholder="Email" style="padding: 8px; margin: 5px;">
+            <input type="password" id="custom-password" placeholder="Password" value="vtp.keg.gmu1WFR6cyg" style="padding: 8px; margin: 5px;">
+            <button class="test-button" onclick="testCustom()">Test Custom</button>
+        </div>
+        <div id="test3-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Console Output</h2>
+        <div id="console-output" class="debug"></div>
+    </div>
+
+    <script>
+        // Initialize Userfront
+        const WORKSPACE_ID = '8nwx667b';
+        
+        // Custom console logger
+        const logOutput = [];
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logOutput.push('[LOG] ' + args.join(' '));
+            updateConsoleOutput();
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            logOutput.push('[ERROR] ' + args.join(' '));
+            updateConsoleOutput();
+        };
+        
+        function updateConsoleOutput() {
+            document.getElementById('console-output').textContent = logOutput.slice(-20).join('\n');
+        }
+        
+        // Initialize Userfront
+        console.log('Initializing Userfront with workspace:', WORKSPACE_ID);
+        Userfront.init(WORKSPACE_ID);
+        console.log('Userfront initialized');
+        
+        async function testOriginalPassword() {
+            const email = 'test-' + Date.now() + '@example.com';
+            const password = 'vtp.keg.gmu1WFR6cyg';
+            const resultDiv = document.getElementById('test1-result');
+            
+            console.log('Testing original password with email:', email);
+            console.log('Password:', password, '(length: ' + password.length + ')');
+            
+            try {
+                const options = {
+                    method: 'password',
+                    email: email,
+                    password: password,
+                    name: 'Test User',
+                    redirect: false
+                };
+                
+                console.log('Signup options:', JSON.stringify(options));
+                
+                const response = await Userfront.signup(options);
+                
+                console.log('Signup response:', response);
+                
+                resultDiv.innerHTML = '<div class="success">✅ SUCCESS! User created with original password. Response: ' + 
+                    JSON.stringify(response, null, 2) + '</div>';
+            } catch (error) {
+                console.error('Signup error:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    type: error.type,
+                    statusCode: error.statusCode,
+                    fullError: JSON.stringify(error)
+                });
+                
+                resultDiv.innerHTML = '<div class="error">❌ ERROR: ' + error.message + 
+                    '<br>Full error: <pre>' + JSON.stringify(error, null, 2) + '</pre></div>';
+            }
+        }
+        
+        async function testExistingEmail() {
+            const email = 'hsbb@ste-marie.ca';
+            const password = 'vtp.keg.gmu1WFR6cyg';
+            const resultDiv = document.getElementById('test2-result');
+            
+            console.log('Testing existing email:', email);
+            
+            try {
+                const options = {
+                    method: 'password',
+                    email: email,
+                    password: password,
+                    name: 'Test User',
+                    redirect: false
+                };
+                
+                const response = await Userfront.signup(options);
+                
+                console.log('Signup response:', response);
+                
+                resultDiv.innerHTML = '<div class="success">✅ Unexpected success: ' + 
+                    JSON.stringify(response, null, 2) + '</div>';
+            } catch (error) {
+                console.error('Expected error for existing email:', error);
+                
+                const isEmailError = error.message && 
+                    (error.message.includes('exists') || error.message.includes('Email'));
+                
+                if (isEmailError) {
+                    resultDiv.innerHTML = '<div class="success">✅ Correctly detected existing email<br>' +
+                        'Error message: ' + error.message + '</div>';
+                } else if (error.message && error.message.includes('Password')) {
+                    resultDiv.innerHTML = '<div class="error">❌ PASSWORD ERROR (should be email error): ' + 
+                        error.message + '<br>This indicates the password is being rejected!</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Unexpected error: ' + error.message + '</div>';
+                }
+            }
+        }
+        
+        async function testCustom() {
+            const email = document.getElementById('custom-email').value;
+            const password = document.getElementById('custom-password').value;
+            const resultDiv = document.getElementById('test3-result');
+            
+            if (!email || !password) {
+                resultDiv.innerHTML = '<div class="error">Please enter both email and password</div>';
+                return;
+            }
+            
+            console.log('Testing custom signup:', { email, passwordLength: password.length });
+            
+            try {
+                const options = {
+                    method: 'password',
+                    email: email,
+                    password: password,
+                    name: 'Test User',
+                    redirect: false
+                };
+                
+                const response = await Userfront.signup(options);
+                
+                console.log('Signup response:', response);
+                
+                resultDiv.innerHTML = '<div class="success">✅ SUCCESS! ' + 
+                    JSON.stringify(response, null, 2) + '</div>';
+            } catch (error) {
+                console.error('Signup error:', error);
+                
+                resultDiv.innerHTML = '<div class="error">❌ ERROR: ' + error.message + 
+                    '<br>Full error: <pre>' + JSON.stringify(error, null, 2) + '</pre></div>';
+            }
+        }
+    </script>
+</body>
+</html>

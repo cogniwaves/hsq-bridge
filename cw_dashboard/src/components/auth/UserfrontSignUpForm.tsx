@@ -19,7 +19,7 @@ export function UserfrontSignUpForm() {
     try {
       await register({ email, password, name });
     } catch (error) {
-      // Error is handled by the context
+      // Error is handled by the context and displayed below
     }
   };
 
