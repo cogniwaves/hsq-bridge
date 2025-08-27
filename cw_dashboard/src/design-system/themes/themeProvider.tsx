@@ -8,6 +8,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { lightTheme } from './light';
 import { darkTheme } from './dark';
+import { navigationTokens } from '../tokens/navigation';
 
 // Theme types
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -23,6 +24,9 @@ interface ThemeContextType {
   
   // Current theme object
   theme: Theme;
+  
+  // Navigation tokens for component consumption
+  navigation: typeof navigationTokens;
   
   // Theme switching functions
   setMode: (mode: ThemeMode) => void;
@@ -170,6 +174,7 @@ export function ThemeProvider({
     mode,
     resolvedMode,
     theme,
+    navigation: navigationTokens,
     setMode,
     toggleMode,
     systemPreference,
@@ -196,7 +201,7 @@ export function useTheme(): ThemeContextType {
 
 // CSS helper hook for styled components
 export function useThemeStyles() {
-  const { theme, resolvedMode } = useTheme();
+  const { theme, resolvedMode, navigation } = useTheme();
   
   return {
     theme,
@@ -208,6 +213,30 @@ export function useThemeStyles() {
     motion: theme.motion,
     breakpoints: theme.breakpoints,
     components: theme.components,
+    navigation,
+  };
+}
+
+// Navigation-specific theme hook for easy navigation token access
+export function useNavigationTheme() {
+  const { navigation, resolvedMode, theme } = useTheme();
+  
+  return {
+    navigation,
+    mode: resolvedMode,
+    // Theme-specific navigation tokens
+    surfaces: navigation.surfaces[resolvedMode],
+    elevation: navigation.elevation[resolvedMode],
+    itemStates: navigation.itemStates[resolvedMode],
+    // Layout and spacing
+    layout: navigation.layout,
+    spacing: navigation.spacing,
+    typography: navigation.typography,
+    motion: navigation.motion,
+    breakpoints: navigation.breakpoints,
+    zIndex: navigation.zIndex,
+    a11y: navigation.a11y,
+    examples: navigation.examples,
   };
 }
 
