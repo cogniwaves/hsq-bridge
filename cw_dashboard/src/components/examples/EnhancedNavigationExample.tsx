@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { EnhancedNavigationRail } from '../navigation/EnhancedNavigationRail';
+import { EnhancedNavigationDrawer } from '../navigation/EnhancedNavigationDrawer';
 import { navigationConfig } from '../navigation/navigationConfig';
 import { useBadges } from '../../hooks/useBadges';
 import { useSmartNavigation } from '../../hooks/useSmartNavigation';
@@ -31,6 +32,7 @@ const enhancedNavigationConfig = {
 export function EnhancedNavigationExample() {
   const [activeItemId, setActiveItemId] = useState('dashboard');
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewMode, setViewMode] = useState<'rail' | 'drawer'>('rail');
 
   // Badge management
   const { updateItemBadges, addBadge } = useBadges({
@@ -41,7 +43,7 @@ export function EnhancedNavigationExample() {
   // Smart navigation features
   const smartNav = useSmartNavigation({
     sections: enhancedNavigationConfig.sections,
-    mode: 'rail',
+    mode: viewMode,
     enableBreadcrumbs: true,
     enableRecentItems: true,
     maxRecentItems: 5,
@@ -138,47 +140,122 @@ export function EnhancedNavigationExample() {
       display: 'flex',
       backgroundColor: '#f5f5f5'
     }}>
-      {/* Enhanced Navigation Rail */}
-      <EnhancedNavigationRail
-        config={enhancedNavigationConfig}
-        activeItemId={activeItemId}
-        onItemClick={handleItemClick}
-        onExpandClick={() => setIsExpanded(true)}
-        
-        // Advanced features enabled
-        enableTooltips={true}
-        enableBadges={true}
-        enableAnimations={true}
-        enableGestures={true}
-        enableKeyboardNavigation={true}
-        
-        // Configuration
-        animationDuration={300}
-        tooltipConfig={{
-          showDelay: 500,
-          hideDelay: 100,
-          position: 'right',
-        }}
-        
-        // Event handlers
-        onBadgeClick={handleBadgeClick}
-        onSwipeRight={() => setIsExpanded(true)}
-        
-        // Accessibility announcements
-        announcements={{
-          itemFocused: (itemName) => console.log(`🎯 Focused: ${itemName}`),
-          itemActivated: (itemName) => console.log(`✅ Activated: ${itemName}`),
-          badgeUpdated: (itemName, count) => console.log(`🔔 ${itemName}: ${count} notifications`),
-        }}
-      />
+      {/* Mode Toggle */}
+      <div style={{
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        zIndex: 9999,
+        display: 'flex',
+        gap: '8px',
+        backgroundColor: 'white',
+        padding: '8px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+      }}>
+        <button
+          onClick={() => setViewMode('rail')}
+          style={{
+            padding: '6px 12px',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '12px',
+            backgroundColor: viewMode === 'rail' ? '#FF6B35' : 'transparent',
+            color: viewMode === 'rail' ? 'white' : '#666',
+            cursor: 'pointer'
+          }}
+        >
+          Rail Mode
+        </button>
+        <button
+          onClick={() => setViewMode('drawer')}
+          style={{
+            padding: '6px 12px',
+            border: 'none',
+            borderRadius: '4px',
+            fontSize: '12px',
+            backgroundColor: viewMode === 'drawer' ? '#FF6B35' : 'transparent',
+            color: viewMode === 'drawer' ? 'white' : '#666',
+            cursor: 'pointer'
+          }}
+        >
+          Drawer Mode (Collapsible)
+        </button>
+      </div>
+
+      {/* Navigation Component */}
+      {viewMode === 'rail' ? (
+        <EnhancedNavigationRail
+          config={enhancedNavigationConfig}
+          activeItemId={activeItemId}
+          onItemClick={handleItemClick}
+          onExpandClick={() => setViewMode('drawer')}
+          
+          // Advanced features enabled
+          enableTooltips={true}
+          enableBadges={true}
+          enableAnimations={true}
+          enableGestures={true}
+          enableKeyboardNavigation={true}
+          
+          // Configuration
+          animationDuration={300}
+          tooltipConfig={{
+            showDelay: 500,
+            hideDelay: 100,
+            position: 'right',
+          }}
+          
+          // Event handlers
+          onBadgeClick={handleBadgeClick}
+          onSwipeRight={() => setViewMode('drawer')}
+          
+          // Accessibility announcements
+          announcements={{
+            itemFocused: (itemName) => console.log(`🎯 Focused: ${itemName}`),
+            itemActivated: (itemName) => console.log(`✅ Activated: ${itemName}`),
+            badgeUpdated: (itemName, count) => console.log(`🔔 ${itemName}: ${count} notifications`),
+          }}
+        />
+      ) : (
+        <EnhancedNavigationDrawer
+          config={enhancedNavigationConfig}
+          activeItemId={activeItemId}
+          onItemClick={handleItemClick}
+          isOpen={true}
+          onClose={() => setViewMode('rail')}
+          
+          // Advanced features enabled
+          enableTooltips={true}
+          enableBadges={true}
+          enableAnimations={true}
+          enableGestures={true}
+          enableKeyboardNavigation={true}
+          
+          // Configuration
+          animationDuration={300}
+          
+          // Event handlers
+          onBadgeClick={handleBadgeClick}
+          onSwipeLeft={() => setViewMode('rail')}
+          
+          // Accessibility announcements
+          announcements={{
+            itemFocused: (itemName) => console.log(`🎯 Focused: ${itemName}`),
+            itemActivated: (itemName) => console.log(`✅ Activated: ${itemName}`),
+            badgeUpdated: (itemName, count) => console.log(`🔔 ${itemName}: ${count} notifications`),
+          }}
+        />
+      )}
 
       {/* Main Content Area */}
       <div style={{ 
         flex: 1, 
-        marginLeft: '80px', 
+        marginLeft: viewMode === 'rail' ? '80px' : '280px', 
         padding: '24px',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        transition: 'margin-left 300ms ease'
       }}>
         {/* Breadcrumbs */}
         <nav style={{ 
@@ -243,8 +320,9 @@ export function EnhancedNavigationExample() {
                 '📱 Mobile gesture support',
                 '🎨 Smooth animations and micro-interactions',
                 '♿ Comprehensive accessibility features',
-                '🧩 Collapsible sections with persistence',
-                '🤖 Smart contextual suggestions'
+                '🧩 Collapsible sections (use Drawer Mode button above!)',
+                '🤖 Smart contextual suggestions',
+                '🔄 Toggle between Rail and Drawer modes'
               ].map((feature, index) => (
                 <li key={index} style={{
                   padding: '12px 16px',
@@ -278,11 +356,13 @@ export function EnhancedNavigationExample() {
               margin: 0,
               paddingLeft: '20px'
             }}>
+              <li><strong>Click "Drawer Mode" button (top-right)</strong> to test collapsible sections!</li>
               <li>Hover over navigation items to see tooltips</li>
               <li>Click on badges to see interactions</li>
               <li>Use keyboard shortcuts: Alt+M, Alt+P, Ctrl+K</li>
               <li>Try arrow keys to navigate</li>
               <li>Watch badges update automatically</li>
+              <li>Click section headers to collapse/expand sections</li>
             </ul>
           </div>
         </div>
