@@ -170,7 +170,7 @@ export interface NavigationItemProps {
 
 export interface NavigationProfileProps {
   mode: NavigationMode;
-  user: any; // From Userfront auth
+  user?: any; // From Userfront auth - made optional as component gets it from context
   className?: string;
   showAvatar?: boolean;
   showEmail?: boolean;

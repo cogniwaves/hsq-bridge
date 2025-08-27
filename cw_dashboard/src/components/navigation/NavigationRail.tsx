@@ -26,7 +26,7 @@ export function NavigationRail({
   const { surfaces, elevation, layout, spacing, zIndex, a11y, mode: themeMode } = useNavigationTheme();
 
   // Filter visible sections based on user permissions
-  const visibleSections = config.sections.filter(section => {
+  const visibleSections = (config?.sections || []).filter(section => {
     if (typeof section.visible === 'function') {
       return section.visible(user);
     }

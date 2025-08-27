@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Navigation loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Theme transition classes */
+.theme-transition,
+.theme-transition *,
+.theme-transition *:before,
+.theme-transition *:after {
+  transition: all 300ms ease !important;
+  transition-delay: 0s !important;
+}
+
 /* Material Design 3 Theme System */
 @layer base {
   /* Theme transition support */

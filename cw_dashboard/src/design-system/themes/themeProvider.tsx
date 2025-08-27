@@ -193,6 +193,21 @@ export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   
   if (context === undefined) {
+    // During SSR or static generation, return safe defaults
+    if (typeof window === 'undefined') {
+      const defaultTheme = createTheme('light');
+      const defaultNavigation = createNavigationTokens();
+      return {
+        mode: 'light',
+        resolvedMode: 'light',
+        systemPreference: 'light',
+        theme: defaultTheme,
+        navigation: defaultNavigation,
+        setMode: () => {},
+        toggleMode: () => {},
+        isLoading: false,
+      };
+    }
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   
@@ -221,22 +236,26 @@ export function useThemeStyles() {
 export function useNavigationTheme() {
   const { navigation, resolvedMode, theme } = useTheme();
   
+  // Safe access with fallbacks during SSR
+  const safeResolvedMode = resolvedMode || 'light';
+  const safeNavigation = navigation || createNavigationTokens();
+  
   return {
-    navigation,
-    mode: resolvedMode,
-    // Theme-specific navigation tokens
-    surfaces: navigation.surfaces[resolvedMode],
-    elevation: navigation.elevation[resolvedMode],
-    itemStates: navigation.itemStates[resolvedMode],
+    navigation: safeNavigation,
+    mode: safeResolvedMode,
+    // Theme-specific navigation tokens with safe access
+    surfaces: safeNavigation.surfaces?.[safeResolvedMode] || safeNavigation.surfaces?.light || {},
+    elevation: safeNavigation.elevation?.[safeResolvedMode] || safeNavigation.elevation?.light || {},
+    itemStates: safeNavigation.itemStates?.[safeResolvedMode] || safeNavigation.itemStates?.light || {},
     // Layout and spacing
-    layout: navigation.layout,
-    spacing: navigation.spacing,
-    typography: navigation.typography,
-    motion: navigation.motion,
-    breakpoints: navigation.breakpoints,
-    zIndex: navigation.zIndex,
-    a11y: navigation.a11y,
-    examples: navigation.examples,
+    layout: safeNavigation.layout || {},
+    spacing: safeNavigation.spacing || {},
+    typography: safeNavigation.typography || {},
+    motion: safeNavigation.motion || {},
+    breakpoints: safeNavigation.breakpoints || {},
+    zIndex: safeNavigation.zIndex || {},
+    a11y: safeNavigation.a11y || {},
+    examples: safeNavigation.examples || {},
   };
 }
 

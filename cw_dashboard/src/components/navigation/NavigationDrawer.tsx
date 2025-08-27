@@ -28,11 +28,14 @@ export function NavigationDrawer({
   // Track expanded sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
-    config.sections.forEach(section => {
-      if (section.collapsible && !section.defaultCollapsed) {
-        initial.add(section.id);
-      }
-    });
+    // Add defensive check for config.sections
+    if (config && config.sections && Array.isArray(config.sections)) {
+      config.sections.forEach(section => {
+        if (section.collapsible && !section.defaultCollapsed) {
+          initial.add(section.id);
+        }
+      });
+    }
     return initial;
   });
 
@@ -50,7 +53,7 @@ export function NavigationDrawer({
   };
 
   // Filter visible sections based on user permissions
-  const visibleSections = config.sections.filter(section => {
+  const visibleSections = (config?.sections || []).filter(section => {
     if (typeof section.visible === 'function') {
       return section.visible(user);
     }
@@ -144,12 +147,12 @@ export function NavigationDrawer({
         left: 0,
         top: 0,
         bottom: 0,
-        width: layout.drawer.width,
-        backgroundColor: surfaces[themeMode].drawer.background,
-        borderRight: elevation[themeMode].drawer.borderRight,
+        width: layout.drawer?.width || '280px',
+        backgroundColor: surfaces[themeMode]?.drawer?.background || 'var(--color-surface, #ffffff)',
+        borderRight: elevation[themeMode]?.drawer?.borderRight || '1px solid var(--color-surface-variant, #e0e0e0)',
         display: 'flex',
         flexDirection: 'column',
-        zIndex: zIndex.drawer,
+        zIndex: zIndex.drawer || 1000,
         transition: `width 300ms ease`,
       }}
     >
@@ -157,12 +160,12 @@ export function NavigationDrawer({
       <div
         className="nav-drawer-header"
         style={{
-          height: layout.drawer.headerHeight,
-          padding: spacing.container.drawer.padding,
+          height: layout.drawer?.headerHeight || '64px',
+          padding: spacing.container?.drawer?.padding || '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: `1px solid ${surfaces[themeMode].drawer.border}`,
+          borderBottom: `1px solid ${surfaces[themeMode]?.drawer?.border || 'var(--color-surface-variant, #e0e0e0)'}`,
         }}
       >
         {/* Branding */}
@@ -222,7 +225,7 @@ export function NavigationDrawer({
               transition: 'background-color 200ms ease',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'rgba(193, 83, 1, 0.08)';
+              e.currentTarget.style.backgroundColor = 'var(--color-primary-container, rgba(193, 83, 1, 0.08))';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';

@@ -32,11 +32,13 @@ export function NavigationModal({
   // Track expanded sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
-    config.sections.forEach(section => {
+    if (config?.sections && Array.isArray(config.sections)) {
+      config.sections.forEach(section => {
       if (section.collapsible && !section.defaultCollapsed) {
         initial.add(section.id);
       }
-    });
+      });
+    }
     return initial;
   });
 
@@ -152,7 +154,7 @@ export function NavigationModal({
   }, [isOpen, onClose]);
 
   // Filter visible sections
-  const visibleSections = config.sections.filter(section => {
+  const visibleSections = (config?.sections || []).filter(section => {
     if (typeof section.visible === 'function') {
       return section.visible(user);
     }

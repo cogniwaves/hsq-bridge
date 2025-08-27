@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigation } from './useNavigation';
 import { navigationConfig } from './navigationConfig';
 import NavigationRail from './NavigationRail';
@@ -37,8 +37,47 @@ export function SideNavigation({
   sticky = true,
   a11yLabel = 'Main navigation',
 }: SideNavigationProps) {
-  // Use navigation state management hook
-  const navigation = useNavigation(config);
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // Return loading state during SSR
+  if (!mounted) {
+    return (
+      <div
+        className="nav-container nav-loading"
+        style={{
+          position: 'fixed',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '80px',
+          backgroundColor: 'var(--color-surface, #ffffff)',
+          borderRight: '1px solid var(--color-surface-variant, #e0e0e0)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div
+          style={{
+            width: '24px',
+            height: '24px',
+            border: '2px solid var(--color-surface-variant, #e0e0e0)',
+            borderTop: '2px solid var(--color-primary, #ff6900)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }}
+        />
+      </div>
+    );
+  }
+  // Use navigation state management hook with defensive config handling
+  const safeConfig = config || navigationConfig || { sections: [], footer: undefined };
+  const navigation = useNavigation(safeConfig);
   const {
     state,
     currentMode,
@@ -86,7 +125,7 @@ export function SideNavigation({
       case 'rail':
         return (
           <NavigationRail
-            config={config}
+            config={safeConfig}
             activeItemId={state.activeItemId}
             onItemClick={handleItemClick}
             onExpandClick={handleExpandClick}
@@ -98,7 +137,7 @@ export function SideNavigation({
       case 'drawer':
         return (
           <NavigationDrawer
-            config={config}
+            config={safeConfig}
             activeItemId={state.activeItemId}
             onItemClick={handleItemClick}
             onCollapseClick={handleCollapseClick}
@@ -110,7 +149,7 @@ export function SideNavigation({
       case 'modal':
         return (
           <NavigationModal
-            config={config}
+            config={safeConfig}
             isOpen={state.isOpen}
             onClose={handleModalClose}
             activeItemId={state.activeItemId}

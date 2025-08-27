@@ -337,6 +337,10 @@ export function findNavigationItem(itemId: string): NavigationItem | undefined {
 
 // Helper function to get visible navigation sections for a user
 export function getVisibleSections(user: any): NavigationSection[] {
+  if (!navigationSections || !Array.isArray(navigationSections)) {
+    return [];
+  }
+  
   return navigationSections.filter(section => {
     if (typeof section.visible === 'function') {
       return section.visible(user);

@@ -131,11 +131,14 @@ export function useNavigation(config: NavigationConfig) {
   // Initialize expanded sections from config
   useEffect(() => {
     const defaultExpanded = new Set<string>();
-    config.sections.forEach(section => {
-      if (section.collapsible && !section.defaultCollapsed) {
-        defaultExpanded.add(section.id);
-      }
-    });
+    // Add defensive check for config.sections
+    if (config?.sections && Array.isArray(config.sections)) {
+      config.sections.forEach(section => {
+        if (section.collapsible && !section.defaultCollapsed) {
+          defaultExpanded.add(section.id);
+        }
+      });
+    }
     
     // Only set if there are sections to expand
     if (defaultExpanded.size > 0) {
@@ -292,7 +295,14 @@ function findActiveItemByPath(
   config: NavigationConfig,
   pathname: string
 ): NavigationItem | undefined {
+  // Add defensive check for config and sections
+  if (!config || !config.sections || !Array.isArray(config.sections)) {
+    return undefined;
+  }
+  
   for (const section of config.sections) {
+    if (!section.items || !Array.isArray(section.items)) continue;
+    
     for (const item of section.items) {
       if (item.href === pathname) return item;
       
@@ -304,7 +314,7 @@ function findActiveItemByPath(
   }
   
   // Check footer section
-  if (config.footer) {
+  if (config?.footer?.items && Array.isArray(config.footer.items)) {
     for (const item of config.footer.items) {
       if (item.href === pathname) return item;
     }
