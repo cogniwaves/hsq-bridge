@@ -89,9 +89,11 @@
     --motion-easing-decelerated: cubic-bezier(0, 0, 0, 1);
     --motion-easing-accelerated: cubic-bezier(0.3, 0, 1, 1);
     
-    /* Navigation specific colors */
+    /* Navigation specific colors - Light theme default */
     --nav-section-header-color: #666666;
     --nav-toggle-color: #333333;
+    --nav-section-header-color-dark: #CCCCCC;
+    --nav-toggle-color-dark: #FFFFFF;
   }
   
   /* Global base styles */
@@ -411,14 +413,128 @@ body {
     color: var(--nav-toggle-color, #333333) !important;
   }
 
-  /* Force dark theme navigation colors */
+  /* AGGRESSIVE THEME-SPECIFIC NAVIGATION CONTRAST FIXES */
+  
+  /* Light theme navigation - Force dark gray section headers */
+  html:not(.theme-dark) .nav-section-header,
+  body:not(.theme-dark) .nav-section-header,
+  .theme-light .nav-section-header,
+  .nav-section-header {
+    color: #666666 !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Light theme collapse button - Force dark gray */
+  html:not(.theme-dark) .nav-collapse-button,
+  body:not(.theme-dark) .nav-collapse-button,
+  .theme-light .nav-collapse-button,
+  html:not(.theme-dark) .nav-collapse-button svg,
+  body:not(.theme-dark) .nav-collapse-button svg,
+  .theme-light .nav-collapse-button svg {
+    color: #333333 !important;
+    fill: #333333 !important;
+  }
+
+  /* Dark theme navigation - Force light gray section headers */
+  html.theme-dark .nav-section-header,
+  body.theme-dark .nav-section-header,
   .theme-dark .nav-section-header {
+    color: #CCCCCC !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Dark theme collapse button - Force white */
+  html.theme-dark .nav-collapse-button,
+  body.theme-dark .nav-collapse-button,
+  .theme-dark .nav-collapse-button,
+  html.theme-dark .nav-collapse-button svg,
+  body.theme-dark .nav-collapse-button svg,
+  .theme-dark .nav-collapse-button svg {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+  }
+
+  /* Force specific section headers visibility */
+  [data-testid*="section-header"],
+  [class*="section-header"],
+  div:contains("Tools & Integration"),
+  div:contains("Configuration"), 
+  div:contains("Help & Support") {
+    color: var(--nav-section-header-color) !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+  }
+
+  /* Dark theme specific overrides for section headers */
+  .theme-dark [data-testid*="section-header"],
+  .theme-dark [class*="section-header"],
+  .theme-dark div:contains("Tools & Integration"),
+  .theme-dark div:contains("Configuration"),
+  .theme-dark div:contains("Help & Support") {
     color: #CCCCCC !important;
   }
 
-  .theme-dark .nav-collapse-button,
-  .theme-dark .nav-collapse-button svg {
+  /* Additional aggressive targeting for navigation elements */
+  
+  /* Target all potential navigation section elements */
+  nav .nav-section-header,
+  aside .nav-section-header,
+  [role="navigation"] .nav-section-header,
+  [data-component="navigation"] .nav-section-header,
+  [data-component*="nav"] .nav-section-header,
+  .navigation .nav-section-header,
+  .sidebar .nav-section-header {
+    color: #666666 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Dark theme overrides for all navigation contexts */
+  .theme-dark nav .nav-section-header,
+  .theme-dark aside .nav-section-header,
+  .theme-dark [role="navigation"] .nav-section-header,
+  .theme-dark [data-component="navigation"] .nav-section-header,
+  .theme-dark [data-component*="nav"] .nav-section-header,
+  .theme-dark .navigation .nav-section-header,
+  .theme-dark .sidebar .nav-section-header {
+    color: #CCCCCC !important;
+  }
+
+  /* Target collapse buttons in all contexts */
+  button[class*="collapse"],
+  button[data-testid*="collapse"], 
+  button[aria-label*="collapse"],
+  button[aria-label*="toggle"],
+  .collapse-button,
+  .toggle-button,
+  [data-component*="toggle"] button {
+    color: #333333 !important;
+  }
+
+  /* Dark theme collapse buttons */
+  .theme-dark button[class*="collapse"],
+  .theme-dark button[data-testid*="collapse"], 
+  .theme-dark button[aria-label*="collapse"],
+  .theme-dark button[aria-label*="toggle"],
+  .theme-dark .collapse-button,
+  .theme-dark .toggle-button,
+  .theme-dark [data-component*="toggle"] button {
     color: #FFFFFF !important;
+  }
+
+  /* SVG icons inside buttons - aggressive targeting */
+  button svg,
+  button svg path,
+  .nav-collapse-button svg,
+  .nav-collapse-button svg path,
+  [class*="collapse"] svg,
+  [class*="collapse"] svg path {
+    color: inherit !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
   }
 
   /* Navigation divider */
