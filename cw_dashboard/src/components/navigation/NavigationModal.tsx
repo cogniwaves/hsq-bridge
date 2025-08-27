@@ -207,9 +207,9 @@ export function NavigationModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
-            padding: `${spacing.section.headerMarginBottom} ${spacing.section.headerPaddingHorizontal}`,
-            marginTop: spacing.section.headerMarginTop,
-            marginBottom: spacing.section.headerMarginBottom,
+            padding: `${spacing?.section?.headerMarginBottom || '8px'} ${spacing?.section?.headerPaddingHorizontal || '16px'}`,
+            marginTop: spacing?.section?.headerMarginTop || '16px',
+            marginBottom: spacing?.section?.headerMarginBottom || '8px',
             backgroundColor: 'transparent',
             border: 'none',
             cursor: 'pointer',
@@ -234,9 +234,9 @@ export function NavigationModal({
       <div
         className="nav-modal-section-header"
         style={{
-          padding: `${spacing.section.headerMarginBottom} ${spacing.section.headerPaddingHorizontal}`,
-          marginTop: spacing.section.headerMarginTop,
-          marginBottom: spacing.section.headerMarginBottom,
+          padding: `${spacing?.section?.headerMarginBottom || '8px'} ${spacing?.section?.headerPaddingHorizontal || '16px'}`,
+          marginTop: spacing?.section?.headerMarginTop || '16px',
+          marginBottom: spacing?.section?.headerMarginBottom || '8px',
           color: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
           ...typography.sectionHeader,
         }}
@@ -261,7 +261,7 @@ export function NavigationModal({
           right: 0,
           bottom: 0,
           backgroundColor: modalSurfaces.backdrop || 'rgba(0, 0, 0, 0.5)',
-          zIndex: zIndex.modalBackdrop,
+          zIndex: zIndex?.modalBackdrop || 1000,
           opacity: isOpen ? 1 : 0,
           transition: `opacity ${motion.modalTransition.enter.duration} ${motion.modalTransition.enter.easing}`,
         }}
@@ -285,7 +285,7 @@ export function NavigationModal({
           boxShadow: modalElevation.boxShadow || '0 4px 16px rgba(0, 0, 0, 0.12)',
           display: 'flex',
           flexDirection: 'column',
-          zIndex: zIndex.modal,
+          zIndex: zIndex?.modal || 1100,
           transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: `transform ${motion.modalTransition.enter.duration} ${motion.modalTransition.enter.easing}`,
         }}
@@ -295,7 +295,7 @@ export function NavigationModal({
           className="nav-modal-header"
           style={{
             height: layout?.modal?.headerHeight || '64px',
-            padding: spacing.container.modal.padding,
+            padding: spacing?.container?.modal?.padding || '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -353,7 +353,7 @@ export function NavigationModal({
             flex: 1,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: spacing.container.modal.padding,
+            padding: spacing?.container?.modal?.padding || '16px',
             WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
           }}
         >
@@ -376,7 +376,7 @@ export function NavigationModal({
                         />
                         
                         {item.children && activeItemId === item.id && (
-                          <div style={{ marginLeft: spacing.item.horizontalPadding }}>
+                          <div style={{ marginLeft: spacing?.item?.horizontalPadding || '16px' }}>
                             {item.children
                               .filter(isItemVisible)
                               .map((child) => (
@@ -402,7 +402,7 @@ export function NavigationModal({
                   style={{
                     height: '1px',
                     backgroundColor: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
-                    margin: `${spacing.section.dividerMargin} 0`,
+                    margin: `${spacing?.section?.dividerMargin || '12px'} 0`,
                     opacity: 0.2,
                   }}
                 />
@@ -416,7 +416,7 @@ export function NavigationModal({
           <div
             className="nav-modal-footer"
             style={{
-              padding: spacing.container.modal.padding,
+              padding: spacing?.container?.modal?.padding || '16px',
               paddingTop: 0,
             }}
           >

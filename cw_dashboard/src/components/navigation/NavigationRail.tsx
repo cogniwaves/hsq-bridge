@@ -67,8 +67,8 @@ export function NavigationRail({
         borderRight: railElevation.borderRight || '1px solid var(--color-surface-variant, #e0e0e0)',
         display: 'flex',
         flexDirection: 'column',
-        padding: spacing.container.rail.padding,
-        zIndex: zIndex.rail,
+        padding: spacing?.container?.rail?.padding || '16px',
+        zIndex: zIndex?.rail || 1000,
         transition: `width 300ms ease`,
       }}
     >
@@ -80,7 +80,7 @@ export function NavigationRail({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          marginBottom: spacing.section.headerMarginBottom,
+          marginBottom: spacing?.section?.headerMarginBottom || '8px',
         }}
       >
         {showExpandButton ? (
@@ -167,7 +167,7 @@ export function NavigationRail({
                 style={{
                   height: '1px',
                   backgroundColor: railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
-                  margin: `${spacing.section.dividerMargin} 0`,
+                  margin: `${spacing?.section?.dividerMargin || '12px'} 0`,
                   opacity: 0.2,
                 }}
               />
@@ -181,7 +181,7 @@ export function NavigationRail({
         <div
           className="nav-rail-footer"
           style={{
-            paddingTop: spacing.section.dividerMargin,
+            paddingTop: spacing?.section?.dividerMargin || '12px',
             borderTop: `1px solid ${railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
           }}
         >
