@@ -27,6 +27,7 @@ export function NavigationRail({
   
   // Safe access to theme surfaces with fallbacks
   const railSurfaces = surfaces?.rail || {};
+  const railElevation = elevation?.rail || {};
 
   // Filter visible sections based on user permissions
   const visibleSections = (config?.sections || []).filter(section => {
@@ -61,9 +62,9 @@ export function NavigationRail({
         left: 0,
         top: 0,
         bottom: 0,
-        width: layout.rail.width,
+        width: layout?.rail?.width || '80px',
         backgroundColor: railSurfaces.background || 'var(--color-surface, #ffffff)',
-        borderRight: elevation[themeMode].rail.borderRight,
+        borderRight: railElevation.borderRight || '1px solid var(--color-surface-variant, #e0e0e0)',
         display: 'flex',
         flexDirection: 'column',
         padding: spacing.container.rail.padding,
@@ -75,7 +76,7 @@ export function NavigationRail({
       <div
         className="nav-rail-header"
         style={{
-          height: layout.rail.headerHeight,
+          height: layout?.rail?.headerHeight || '64px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

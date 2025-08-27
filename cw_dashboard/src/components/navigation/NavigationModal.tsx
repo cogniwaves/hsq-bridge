@@ -28,6 +28,7 @@ export function NavigationModal({
   
   // Safe access to theme surfaces with fallbacks
   const modalSurfaces = surfaces?.modal || {};
+  const modalElevation = elevation?.modal || {};
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -278,10 +279,10 @@ export function NavigationModal({
           top: 0,
           left: 0,
           bottom: 0,
-          width: layout.modal.width,
-          maxWidth: layout.modal.maxWidth,
+          width: layout?.modal?.width || '280px',
+          maxWidth: layout?.modal?.maxWidth || '320px',
           backgroundColor: modalSurfaces.background || 'var(--color-surface, #ffffff)',
-          boxShadow: elevation[themeMode].modal.boxShadow,
+          boxShadow: modalElevation.boxShadow || '0 4px 16px rgba(0, 0, 0, 0.12)',
           display: 'flex',
           flexDirection: 'column',
           zIndex: zIndex.modal,
@@ -293,7 +294,7 @@ export function NavigationModal({
         <div
           className="nav-modal-header"
           style={{
-            height: layout.modal.headerHeight,
+            height: layout?.modal?.headerHeight || '64px',
             padding: spacing.container.modal.padding,
             display: 'flex',
             alignItems: 'center',
