@@ -25,6 +25,9 @@ export function NavigationModal({
 }: NavigationModalProps) {
   const { user } = useUserfrontAuth();
   const { surfaces, elevation, layout, spacing, typography, zIndex, motion, a11y, mode: themeMode } = useNavigationTheme();
+  
+  // Safe access to theme surfaces with fallbacks
+  const modalSurfaces = surfaces?.modal || {};
   const modalRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -209,7 +212,7 @@ export function NavigationModal({
             backgroundColor: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: surfaces[themeMode].modal.border,
+            color: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
             ...typography.sectionHeader,
             minHeight: '48px', // Touch-friendly size
           }}
@@ -233,7 +236,7 @@ export function NavigationModal({
           padding: `${spacing.section.headerMarginBottom} ${spacing.section.headerPaddingHorizontal}`,
           marginTop: spacing.section.headerMarginTop,
           marginBottom: spacing.section.headerMarginBottom,
-          color: surfaces[themeMode].modal.border,
+          color: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
           ...typography.sectionHeader,
         }}
       >
@@ -256,7 +259,7 @@ export function NavigationModal({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: surfaces[themeMode].modal.backdrop,
+          backgroundColor: modalSurfaces.backdrop || 'rgba(0, 0, 0, 0.5)',
           zIndex: zIndex.modalBackdrop,
           opacity: isOpen ? 1 : 0,
           transition: `opacity ${motion.modalTransition.enter.duration} ${motion.modalTransition.enter.easing}`,
@@ -277,7 +280,7 @@ export function NavigationModal({
           bottom: 0,
           width: layout.modal.width,
           maxWidth: layout.modal.maxWidth,
-          backgroundColor: surfaces[themeMode].modal.background,
+          backgroundColor: modalSurfaces.background || 'var(--color-surface, #ffffff)',
           boxShadow: elevation[themeMode].modal.boxShadow,
           display: 'flex',
           flexDirection: 'column',
@@ -295,7 +298,7 @@ export function NavigationModal({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: `1px solid ${surfaces[themeMode].modal.border}`,
+            borderBottom: `1px solid ${modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
           }}
         >
           {/* Branding */}
@@ -335,7 +338,7 @@ export function NavigationModal({
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
-              color: surfaces[themeMode].modal.border,
+              color: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
             }}
           >
             <XMarkIcon className="w-6 h-6" />
@@ -397,7 +400,7 @@ export function NavigationModal({
                 <div
                   style={{
                     height: '1px',
-                    backgroundColor: surfaces[themeMode].modal.border,
+                    backgroundColor: modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
                     margin: `${spacing.section.dividerMargin} 0`,
                     opacity: 0.2,
                   }}

@@ -31,6 +31,12 @@ export function NavigationProfile({
   const router = useRouter();
   const { user, logout, isAuthenticated } = useUserfrontAuth();
   const { surfaces, typography, spacing, itemStates, mode: themeMode } = useNavigationTheme();
+  
+  // Safe access to theme surfaces with fallbacks
+  const railSurfaces = surfaces?.rail || {};
+  const modalSurfaces = surfaces?.modal || {};
+  const drawerSurfaces = surfaces?.drawer || {};
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -113,7 +119,7 @@ export function NavigationProfile({
       <div
         className={`nav-profile nav-profile-rail ${className}`}
         style={{
-          borderTop: `1px solid ${surfaces[themeMode].rail.border}`,
+          borderTop: `1px solid ${railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
           padding: spacing.userProfile.borderTopMargin,
           marginTop: spacing.userProfile.marginTop,
         }}
@@ -174,8 +180,8 @@ export function NavigationProfile({
               marginLeft: '8px',
               marginBottom: '8px',
               minWidth: '200px',
-              backgroundColor: surfaces[themeMode].modal.background,
-              border: `1px solid ${surfaces[themeMode].modal.border}`,
+              backgroundColor: modalSurfaces.background || 'var(--color-surface, #ffffff)',
+              border: `1px solid ${modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
               borderRadius: '8px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
               padding: '8px',
@@ -204,7 +210,7 @@ export function NavigationProfile({
     <div
       className={`nav-profile nav-profile-${mode} ${className}`}
       style={{
-        borderTop: `1px solid ${surfaces[themeMode][mode].border}`,
+        borderTop: `1px solid ${(mode === 'rail' ? railSurfaces : mode === 'modal' ? modalSurfaces : drawerSurfaces).border || 'var(--color-surface-variant, #e0e0e0)'}`,
         padding: spacing.container[mode].padding,
         paddingTop: spacing.userProfile.paddingTop,
         marginTop: spacing.userProfile.marginTop,
@@ -307,8 +313,8 @@ export function NavigationProfile({
           className="nav-profile-menu"
           style={{
             marginTop: '8px',
-            backgroundColor: surfaces[themeMode].modal.background,
-            border: `1px solid ${surfaces[themeMode].modal.border}`,
+            backgroundColor: modalSurfaces.background || 'var(--color-surface, #ffffff)',
+            border: `1px solid ${modalSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
             borderRadius: '8px',
             padding: '8px',
           }}

@@ -25,6 +25,10 @@ export function NavigationDrawer({
   const { user } = useUserfrontAuth();
   const { surfaces, elevation, layout, spacing, typography, zIndex, a11y, mode: themeMode } = useNavigationTheme();
   
+  // Safe access to theme surfaces with fallbacks
+  const drawerSurfaces = surfaces?.drawer || {};
+  const drawerElevation = elevation?.drawer || {};
+  
   // Track expanded sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
     const initial = new Set<string>();
@@ -92,21 +96,21 @@ export function NavigationDrawer({
             alignItems: 'center',
             justifyContent: 'space-between',
             width: '100%',
-            padding: `${spacing.section.headerMarginBottom} ${spacing.section.headerPaddingHorizontal}`,
-            marginTop: spacing.section.headerMarginTop,
-            marginBottom: spacing.section.headerMarginBottom,
+            padding: `${spacing?.section?.headerMarginBottom || '8px'} ${spacing?.section?.headerPaddingHorizontal || '16px'}`,
+            marginTop: spacing?.section?.headerMarginTop || '16px',
+            marginBottom: spacing?.section?.headerMarginBottom || '8px',
             backgroundColor: 'transparent',
             border: 'none',
             cursor: 'pointer',
-            color: surfaces[themeMode].drawer.border,
+            color: drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
             ...typography.sectionHeader,
             transition: 'color 200ms ease',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.color = surfaces[themeMode].drawer.overlay;
+            e.currentTarget.style.color = drawerSurfaces.overlay || 'var(--color-primary, #ff6900)';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.color = surfaces[themeMode].drawer.border;
+            e.currentTarget.style.color = drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)';
           }}
         >
           <span>{section.title}</span>
@@ -125,10 +129,10 @@ export function NavigationDrawer({
       <div
         className="nav-section-header"
         style={{
-          padding: `${spacing.section.headerMarginBottom} ${spacing.section.headerPaddingHorizontal}`,
-          marginTop: spacing.section.headerMarginTop,
-          marginBottom: spacing.section.headerMarginBottom,
-          color: surfaces[themeMode].drawer.border,
+          padding: `${spacing?.section?.headerMarginBottom || '8px'} ${spacing?.section?.headerPaddingHorizontal || '16px'}`,
+          marginTop: spacing?.section?.headerMarginTop || '16px',
+          marginBottom: spacing?.section?.headerMarginBottom || '8px',
+          color: drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
           ...typography.sectionHeader,
         }}
       >
@@ -148,8 +152,8 @@ export function NavigationDrawer({
         top: 0,
         bottom: 0,
         width: layout.drawer?.width || '280px',
-        backgroundColor: surfaces[themeMode]?.drawer?.background || 'var(--color-surface, #ffffff)',
-        borderRight: elevation[themeMode]?.drawer?.borderRight || '1px solid var(--color-surface-variant, #e0e0e0)',
+        backgroundColor: drawerSurfaces.background || 'var(--color-surface, #ffffff)',
+        borderRight: drawerElevation.borderRight || '1px solid var(--color-surface-variant, #e0e0e0)',
         display: 'flex',
         flexDirection: 'column',
         zIndex: zIndex.drawer || 1000,
@@ -161,11 +165,11 @@ export function NavigationDrawer({
         className="nav-drawer-header"
         style={{
           height: layout.drawer?.headerHeight || '64px',
-          padding: spacing.container?.drawer?.padding || '16px',
+          padding: spacing?.container?.drawer?.padding || '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: `1px solid ${surfaces[themeMode]?.drawer?.border || 'var(--color-surface-variant, #e0e0e0)'}`,
+          borderBottom: `1px solid ${drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
         }}
       >
         {/* Branding */}
@@ -221,7 +225,7 @@ export function NavigationDrawer({
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: surfaces[themeMode].drawer.border,
+              color: drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
               transition: 'background-color 200ms ease',
             }}
             onMouseEnter={(e) => {
@@ -243,7 +247,7 @@ export function NavigationDrawer({
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          padding: spacing.container.drawer.padding,
+          padding: spacing?.container?.drawer?.padding || '16px',
         }}
       >
         {visibleSections.map((section, sectionIndex) => (
@@ -278,7 +282,7 @@ export function NavigationDrawer({
                         <div
                           className="nav-item-children"
                           style={{
-                            marginLeft: spacing.item.horizontalPadding,
+                            marginLeft: spacing?.item?.horizontalPadding || '16px',
                           }}
                         >
                           {item.children
@@ -307,8 +311,8 @@ export function NavigationDrawer({
                 className="nav-drawer-divider"
                 style={{
                   height: '1px',
-                  backgroundColor: surfaces[themeMode].drawer.border,
-                  margin: `${spacing.section.dividerMargin} 0`,
+                  backgroundColor: drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
+                  margin: `${spacing?.section?.dividerMargin || '12px'} 0`,
                   opacity: 0.2,
                 }}
               />
@@ -322,7 +326,7 @@ export function NavigationDrawer({
         <div
           className="nav-drawer-footer"
           style={{
-            padding: spacing.container.drawer.padding,
+            padding: spacing?.container?.drawer?.padding || '16px',
             paddingTop: 0,
           }}
         >

@@ -39,6 +39,10 @@ export function SideNavigation({
 }: SideNavigationProps) {
   const [mounted, setMounted] = useState(false);
   
+  // Use navigation state management hook with defensive config handling (MUST be called before any conditional returns)
+  const safeConfig = config || navigationConfig || { sections: [], footer: undefined };
+  const navigation = useNavigation(safeConfig);
+  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -75,9 +79,6 @@ export function SideNavigation({
       </div>
     );
   }
-  // Use navigation state management hook with defensive config handling
-  const safeConfig = config || navigationConfig || { sections: [], footer: undefined };
-  const navigation = useNavigation(safeConfig);
   const {
     state,
     currentMode,

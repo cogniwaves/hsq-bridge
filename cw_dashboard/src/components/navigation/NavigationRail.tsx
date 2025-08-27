@@ -24,6 +24,9 @@ export function NavigationRail({
 }: NavigationRailProps) {
   const { user } = useUserfrontAuth();
   const { surfaces, elevation, layout, spacing, zIndex, a11y, mode: themeMode } = useNavigationTheme();
+  
+  // Safe access to theme surfaces with fallbacks
+  const railSurfaces = surfaces?.rail || {};
 
   // Filter visible sections based on user permissions
   const visibleSections = (config?.sections || []).filter(section => {
@@ -59,7 +62,7 @@ export function NavigationRail({
         top: 0,
         bottom: 0,
         width: layout.rail.width,
-        backgroundColor: surfaces[themeMode].rail.background,
+        backgroundColor: railSurfaces.background || 'var(--color-surface, #ffffff)',
         borderRight: elevation[themeMode].rail.borderRight,
         display: 'flex',
         flexDirection: 'column',
@@ -94,7 +97,7 @@ export function NavigationRail({
               border: 'none',
               borderRadius: '8px',
               cursor: 'pointer',
-              color: surfaces[themeMode].rail.border,
+              color: railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
               transition: 'background-color 200ms ease',
             }}
             onMouseEnter={(e) => {
@@ -162,7 +165,7 @@ export function NavigationRail({
                 className="nav-rail-divider"
                 style={{
                   height: '1px',
-                  backgroundColor: surfaces[themeMode].rail.border,
+                  backgroundColor: railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
                   margin: `${spacing.section.dividerMargin} 0`,
                   opacity: 0.2,
                 }}
@@ -178,7 +181,7 @@ export function NavigationRail({
           className="nav-rail-footer"
           style={{
             paddingTop: spacing.section.dividerMargin,
-            borderTop: `1px solid ${surfaces[themeMode].rail.border}`,
+            borderTop: `1px solid ${railSurfaces.border || 'var(--color-surface-variant, #e0e0e0)'}`,
           }}
         >
           {config.footer.items
