@@ -192,34 +192,60 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (response.tokens?.accessToken) {
-        // Registration successful - manually redirect to main dashboard
-        console.log('[UserfrontAuth] Registration successful, redirecting to dashboard');
+        // Registration successful with immediate access - redirect to dashboard
+        console.log('[UserfrontAuth] Registration successful with immediate access, redirecting to dashboard');
         router.push('/');
       } else if (response.mode === 'live' && !response.tokens) {
         // User needs to verify email in live mode
         console.log('[UserfrontAuth] Email verification required');
         router.push('/auth/verify-email');
+      } else if (response && !response.error) {
+        // Registration successful but delayed token issuance (common in Userfront)
+        // Check if user is actually logged in by checking Userfront state
+        console.log('[UserfrontAuth] Registration completed, checking authentication state...');
+        
+        // Give Userfront a moment to process the authentication
+        setTimeout(() => {
+          if (window.Userfront?.user?.userId) {
+            console.log('[UserfrontAuth] User authenticated after registration, redirecting to dashboard');
+            router.push('/');
+          } else {
+            console.log('[UserfrontAuth] Registration successful, but authentication pending');
+            router.push('/auth/signin');
+          }
+        }, 1000);
       } else {
         console.error('[UserfrontAuth] Registration failed:', response);
-        throw new Error('Registration failed');
+        throw new Error(response?.message || 'Registration failed');
       }
     } catch (err: any) {
-      console.error('[UserfrontAuth ERROR] Registration failed:', err);
+      console.error('[UserfrontAuth ERROR] Registration error:', err);
       
+      // Check if this is actually a network/API error vs registration failure
+      const errorMessage = err.message || 'Registration failed. Please try again.';
       
-      // Check for specific error messages
-      let errorMessage = err.message || 'Registration failed. Please try again.';
+      // Don't set error state if registration was successful but had delayed processing
+      if (errorMessage.includes('Registration failed') && window.Userfront?.user?.userId) {
+        console.log('[UserfrontAuth] Registration actually succeeded despite error, redirecting...');
+        router.push('/');
+        return;
+      }
       
-      // Handle common Userfront errors
+      // Handle specific Userfront errors
+      let friendlyErrorMessage = errorMessage;
+      
       if (errorMessage.includes('Email exists') || errorMessage.includes('already exists')) {
-        errorMessage = 'This email is already registered. Please use a different email or sign in.';
+        friendlyErrorMessage = 'This email is already registered. Please use a different email or sign in.';
       } else if (errorMessage.includes('Password must')) {
         // Password validation error - log the exact requirements
         console.log('[UserfrontAuth ERROR] Password validation failed:', errorMessage);
+        friendlyErrorMessage = 'Password does not meet requirements. Please choose a stronger password.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        friendlyErrorMessage = 'Network error. Please check your connection and try again.';
       }
       
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      setError(friendlyErrorMessage);
+      throw new Error(friendlyErrorMessage);
     }
   }, [router]);
 
