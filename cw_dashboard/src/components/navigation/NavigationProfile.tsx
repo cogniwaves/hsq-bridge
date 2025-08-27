@@ -362,6 +362,9 @@ function ProfileMenu({
   themeMode: 'light' | 'dark';
   itemStates: any;
 }) {
+  // Safe access to theme item states with fallbacks
+  const safeItemStates = itemStates || {};
+  const currentModeStates = safeItemStates[themeMode] || safeItemStates['light'] || {};
   const menuItemStyle = {
     display: 'flex',
     alignItems: 'center',
