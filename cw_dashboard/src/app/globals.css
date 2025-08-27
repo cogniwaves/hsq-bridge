@@ -388,7 +388,7 @@ body {
   .nav-section-header {
     padding: 0 var(--nav-item-padding);
     margin-bottom: 8px;
-    color: var(--nav-section-header-color, #666666);
+    color: var(--nav-section-header-color, #666666) !important;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
@@ -400,6 +400,25 @@ body {
     opacity: 0;
     height: 0;
     margin: 0;
+  }
+
+  /* Navigation collapse button styles */
+  .nav-collapse-button {
+    color: var(--nav-toggle-color, #333333) !important;
+  }
+
+  .nav-collapse-button svg {
+    color: var(--nav-toggle-color, #333333) !important;
+  }
+
+  /* Force dark theme navigation colors */
+  .theme-dark .nav-section-header {
+    color: #CCCCCC !important;
+  }
+
+  .theme-dark .nav-collapse-button,
+  .theme-dark .nav-collapse-button svg {
+    color: #FFFFFF !important;
   }
 
   /* Navigation divider */
