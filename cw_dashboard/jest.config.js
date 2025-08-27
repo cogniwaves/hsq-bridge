@@ -42,10 +42,7 @@ const customJestConfig = {
       '<rootDir>/src/__tests__/mocks/fileMock.js',
   },
 
-  // Transform configuration
-  transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
-  },
+  // Transform configuration (handled by Next.js Jest preset)
 
   // Module file extensions
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
@@ -85,13 +82,6 @@ const customJestConfig = {
 
   // Test timeout
   testTimeout: 10000,
-
-  // Globals for jsdom environment
-  globals: {
-    'ts-jest': {
-      tsconfig: 'tsconfig.json',
-    },
-  },
 
 
   // Clear mocks between tests
