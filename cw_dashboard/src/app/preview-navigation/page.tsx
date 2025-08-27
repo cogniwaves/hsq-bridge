@@ -2,14 +2,12 @@
 
 import React, { useState } from 'react';
 import { NavigationExample } from '../../components/examples/NavigationExample';
-import { SideNavigation } from '../../components/navigation/SideNavigation';
-import { useNavigation } from '../../components/navigation/useNavigation';
+import { SideNavigation, useNavigationContext } from '../../components/navigation/SideNavigation';
 import { ThemeToggle } from '../../design-system/components/ThemeToggle';
 import Link from 'next/link';
 
 export default function NavigationPreviewPage() {
   const [demoMode, setDemoMode] = useState<'examples' | 'live'>('live');
-  const { mode, setMode, isModalOpen, setIsModalOpen } = useNavigation();
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -83,7 +81,9 @@ export default function NavigationPreviewPage() {
 
       {/* Demo Content */}
       {demoMode === 'live' ? (
-        <LiveNavigationDemo />
+        <SideNavigation>
+          <LiveNavigationDemo />
+        </SideNavigation>
       ) : (
         <NavigationExample />
       )}
@@ -92,12 +92,11 @@ export default function NavigationPreviewPage() {
 }
 
 function LiveNavigationDemo() {
-  const { mode, setMode, isModalOpen, setIsModalOpen } = useNavigation();
+  const navigation = useNavigationContext();
+  const { state, dispatch } = navigation;
 
   return (
-    <div className="h-screen flex overflow-hidden">
-      <SideNavigation />
-      <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto">
         <div className="p-6">
           <div className="max-w-4xl mx-auto">
             <h2 className="text-xl font-semibold mb-4" style={{ color: 'var(--color-text-primary)' }}>
@@ -115,33 +114,33 @@ function LiveNavigationDemo() {
               </h3>
               <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => setMode('rail')}
+                  onClick={() => dispatch({ type: 'SET_MODE', mode: 'rail' })}
                   className={`px-4 py-2 text-sm rounded transition-colors ${
-                    mode === 'rail' ? 'font-medium' : ''
+                    state.mode === 'rail' ? 'font-medium' : ''
                   }`}
                   style={{
-                    backgroundColor: mode === 'rail' ? 'var(--color-primary)' : 'var(--color-surface-variant)',
-                    color: mode === 'rail' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
+                    backgroundColor: state.mode === 'rail' ? 'var(--color-primary)' : 'var(--color-surface-variant)',
+                    color: state.mode === 'rail' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
                   }}
                 >
                   Navigation Rail (Collapsed)
                 </button>
                 <button
-                  onClick={() => setMode('drawer')}
+                  onClick={() => dispatch({ type: 'SET_MODE', mode: 'drawer' })}
                   className={`px-4 py-2 text-sm rounded transition-colors ${
-                    mode === 'drawer' ? 'font-medium' : ''
+                    state.mode === 'drawer' ? 'font-medium' : ''
                   }`}
                   style={{
-                    backgroundColor: mode === 'drawer' ? 'var(--color-primary)' : 'var(--color-surface-variant)',
-                    color: mode === 'drawer' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
+                    backgroundColor: state.mode === 'drawer' ? 'var(--color-primary)' : 'var(--color-surface-variant)',
+                    color: state.mode === 'drawer' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
                   }}
                 >
                   Navigation Drawer (Full)
                 </button>
                 <button
                   onClick={() => {
-                    setMode('modal');
-                    setIsModalOpen(true);
+                    dispatch({ type: 'SET_MODE', mode: 'modal' });
+                    dispatch({ type: 'SET_OPEN', isOpen: true });
                   }}
                   className={`px-4 py-2 text-sm rounded transition-colors`}
                   style={{
@@ -153,8 +152,8 @@ function LiveNavigationDemo() {
                 </button>
               </div>
               <p className="mt-3 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                Current mode: <strong>{mode}</strong>
-                {mode === 'modal' && isModalOpen && ' (Modal is open)'}
+                Current mode: <strong>{state.mode}</strong>
+                {state.mode === 'modal' && state.isOpen && ' (Modal is open)'}
               </p>
             </div>
 
@@ -194,7 +193,6 @@ function LiveNavigationDemo() {
             </div>
           </div>
         </div>
-      </div>
     </div>
   );
 }
