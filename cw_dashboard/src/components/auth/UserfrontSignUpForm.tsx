@@ -13,13 +13,17 @@ export function UserfrontSignUpForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSuccess(null); // Clear any previous success message
     try {
       await register({ email, password, name });
+      setSuccess('Account created successfully! Redirecting...');
     } catch (error) {
       // Error is handled by the context and displayed below
+      setSuccess(null); // Clear success message on error
     }
   };
 
@@ -78,6 +82,12 @@ export function UserfrontSignUpForm() {
         {error && (
           <div className="text-red-600 text-sm text-center">
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="text-green-600 text-sm text-center">
+            {success}
           </div>
         )}
 

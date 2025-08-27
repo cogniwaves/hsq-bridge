@@ -10,6 +10,7 @@ import { typography } from '../tokens/typography';
 import { spacingTokens } from '../tokens/spacing';
 import { elevation } from '../tokens/elevation';
 import { motion } from '../tokens/motion';
+import { navigationTokens } from '../tokens/navigation';
 
 export const darkTheme = {
   // Theme identification
@@ -119,13 +120,29 @@ export const darkTheme = {
       },
     },
     
-    // Navigation
+    // Navigation (Enhanced with design tokens)
     navigation: {
-      backgroundColor: colorTokens.dark.surfaceContainer,
-      borderColor: colorTokens.dark.outline,
+      backgroundColor: navigationTokens.surfaces.dark.drawer.background,
+      borderColor: navigationTokens.surfaces.dark.drawer.border,
       height: spacingTokens.business.navHeight,
       padding: spacingTokens.business.navPadding,
-      boxShadow: elevation.dark.level2.boxShadow,
+      boxShadow: navigationTokens.elevation.dark.drawer.boxShadow,
+      // Rail state
+      rail: {
+        backgroundColor: navigationTokens.surfaces.dark.rail.background,
+        borderColor: navigationTokens.surfaces.dark.rail.border,
+        width: navigationTokens.layout.rail.width,
+        boxShadow: navigationTokens.elevation.dark.rail.boxShadow,
+      },
+      // Modal state
+      modal: {
+        backgroundColor: navigationTokens.surfaces.dark.modal.background,
+        borderColor: navigationTokens.surfaces.dark.modal.border,
+        width: navigationTokens.layout.modal.width,
+        maxWidth: navigationTokens.layout.modal.maxWidth,
+        backdropColor: navigationTokens.surfaces.dark.modal.backdrop,
+        boxShadow: navigationTokens.elevation.dark.modal.boxShadow,
+      },
     },
     
     // Modal
@@ -206,6 +223,70 @@ export const darkTheme = {
     '--motion-easing-standard': motion.easing.standard,
     '--motion-easing-decelerated': motion.easing.decelerated,
     '--motion-easing-accelerated': motion.easing.accelerated,
+    
+    // Navigation layout tokens
+    '--nav-width-rail': navigationTokens.layout.rail.width,
+    '--nav-width-drawer': navigationTokens.layout.drawer.width,
+    '--nav-width-modal': navigationTokens.layout.modal.width,
+    '--nav-modal-max-width': navigationTokens.layout.modal.maxWidth,
+    '--nav-item-height': navigationTokens.layout.drawer.itemHeight,
+    '--nav-header-height': navigationTokens.layout.drawer.headerHeight,
+    '--nav-icon-size': navigationTokens.layout.drawer.iconSize,
+    
+    // Navigation surface colors (dark theme)
+    '--nav-rail-bg': navigationTokens.surfaces.dark.rail.background,
+    '--nav-rail-border': navigationTokens.surfaces.dark.rail.border,
+    '--nav-rail-overlay': navigationTokens.surfaces.dark.rail.overlay,
+    '--nav-drawer-bg': navigationTokens.surfaces.dark.drawer.background,
+    '--nav-drawer-border': navigationTokens.surfaces.dark.drawer.border,
+    '--nav-drawer-overlay': navigationTokens.surfaces.dark.drawer.overlay,
+    '--nav-modal-bg': navigationTokens.surfaces.dark.modal.background,
+    '--nav-modal-border': navigationTokens.surfaces.dark.modal.border,
+    '--nav-modal-overlay': navigationTokens.surfaces.dark.modal.overlay,
+    '--nav-modal-backdrop': navigationTokens.surfaces.dark.modal.backdrop,
+    
+    // Navigation item states (dark theme)
+    '--nav-item-default-bg': navigationTokens.itemStates.dark.default.background,
+    '--nav-item-default-color': navigationTokens.itemStates.dark.default.color,
+    '--nav-item-default-icon': navigationTokens.itemStates.dark.default.icon,
+    '--nav-item-hover-bg': navigationTokens.itemStates.dark.hover.background,
+    '--nav-item-hover-color': navigationTokens.itemStates.dark.hover.color,
+    '--nav-item-hover-icon': navigationTokens.itemStates.dark.hover.icon,
+    '--nav-item-active-bg': navigationTokens.itemStates.dark.active.background,
+    '--nav-item-active-color': navigationTokens.itemStates.dark.active.color,
+    '--nav-item-active-icon': navigationTokens.itemStates.dark.active.icon,
+    '--nav-item-focused-bg': navigationTokens.itemStates.dark.focused.background,
+    '--nav-item-focused-color': navigationTokens.itemStates.dark.focused.color,
+    '--nav-item-focused-icon': navigationTokens.itemStates.dark.focused.icon,
+    '--nav-item-focused-outline': navigationTokens.itemStates.dark.focused.outline,
+    '--nav-item-disabled-opacity': navigationTokens.itemStates.dark.disabled.opacity,
+    
+    // Navigation spacing
+    '--nav-container-padding': navigationTokens.spacing.container.drawer.padding,
+    '--nav-item-padding': navigationTokens.spacing.container.drawer.itemPadding,
+    '--nav-item-gap': navigationTokens.spacing.container.drawer.itemGap,
+    '--nav-icon-to-text': navigationTokens.spacing.item.iconToText,
+    '--nav-section-gap': navigationTokens.spacing.section.groupGap,
+    
+    // Navigation motion
+    '--nav-transition-duration': navigationTokens.motion.stateTransition.duration,
+    '--nav-transition-easing': navigationTokens.motion.stateTransition.easing,
+    '--nav-item-hover-duration': navigationTokens.motion.item.hover.duration,
+    '--nav-item-hover-easing': navigationTokens.motion.item.hover.easing,
+    '--nav-modal-enter-duration': navigationTokens.motion.modalTransition.enter.duration,
+    '--nav-modal-exit-duration': navigationTokens.motion.modalTransition.exit.duration,
+    
+    // Navigation z-index
+    '--nav-rail-z': navigationTokens.zIndex.rail.toString(),
+    '--nav-drawer-z': navigationTokens.zIndex.drawer.toString(),
+    '--nav-modal-z': navigationTokens.zIndex.modal.toString(),
+    '--nav-modal-backdrop-z': navigationTokens.zIndex.modalBackdrop.toString(),
+    '--nav-tooltip-z': navigationTokens.zIndex.tooltip.toString(),
+    '--nav-badge-z': navigationTokens.zIndex.badge.toString(),
+    
+    // Navigation-specific colors for better contrast
+    '--nav-section-header-color': '#CCCCCC',
+    '--nav-toggle-color': '#FFFFFF',
   },
 } as const;
 

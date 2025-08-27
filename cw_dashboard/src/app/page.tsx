@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { UserfrontProtectedRoute } from '../components/auth/UserfrontProtectedRoute';
+import Link from 'next/link';
 
 export default function Dashboard() {
   return (
     <UserfrontProtectedRoute>
-      <div 
-        className="min-h-screen transition-colors duration-300"
-        style={{ backgroundColor: 'var(--color-background)' }}
-      >
-      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         <div className="px-4 py-6 sm:px-0">
           <div className="text-center">
             <h1 
@@ -148,6 +145,7 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Phase 3 Navigation Demo */}
             <div className="mt-8">
               <div 
                 className="shadow overflow-hidden sm:rounded-md transition-colors duration-300"
@@ -158,15 +156,15 @@ export default function Dashboard() {
                     className="text-lg leading-6 font-medium transition-colors duration-300"
                     style={{ color: 'var(--color-text-primary)' }}
                   >
-                    Welcome to HSQ Bridge
+                    Phase 3: Material Design 3 Navigation System
                   </h3>
                   <div className="mt-2 max-w-xl text-sm">
                     <p style={{ color: 'var(--color-text-secondary)' }}>
-                      This is your central dashboard for managing invoice and payment synchronization
-                      between HubSpot, Stripe, and QuickBooks.
+                      Complete navigation component architecture with responsive design, theme integration,
+                      and Userfront authentication. Try resizing the browser to see the navigation adapt!
                     </p>
                   </div>
-                  <div className="mt-3">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <span 
                       className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-300"
                       style={{ 
@@ -174,15 +172,44 @@ export default function Dashboard() {
                         color: 'white' 
                       }}
                     >
-                      Authentication System Deployed
+                      Navigation Components Complete
                     </span>
+                    <span 
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-300"
+                      style={{ 
+                        backgroundColor: 'var(--color-primary)', 
+                        color: 'white' 
+                      }}
+                    >
+                      Responsive Design
+                    </span>
+                    <span 
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors duration-300"
+                      style={{ 
+                        backgroundColor: 'var(--color-secondary)', 
+                        color: 'white' 
+                      }}
+                    >
+                      Theme Integration
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <Link 
+                      href="/preview-navigation"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-colors duration-300"
+                      style={{
+                        backgroundColor: 'var(--color-primary)',
+                        color: 'var(--color-on-primary)'
+                      }}
+                    >
+                      View Navigation Examples
+                    </Link>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
     </UserfrontProtectedRoute>
   );

@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Navigation loading animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Theme transition classes */
+.theme-transition,
+.theme-transition *,
+.theme-transition *:before,
+.theme-transition *:after {
+  transition: all 300ms ease !important;
+  transition-delay: 0s !important;
+}
+
 /* Material Design 3 Theme System */
 @layer base {
   /* Theme transition support */
@@ -73,6 +88,12 @@
     --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
     --motion-easing-decelerated: cubic-bezier(0, 0, 0, 1);
     --motion-easing-accelerated: cubic-bezier(0.3, 0, 1, 1);
+    
+    /* Navigation specific colors - Light theme default */
+    --nav-section-header-color: #666666;
+    --nav-toggle-color: #333333;
+    --nav-section-header-color-dark: #CCCCCC;
+    --nav-toggle-color-dark: #FFFFFF;
   }
   
   /* Global base styles */
@@ -124,6 +145,505 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-primary);
+}
+
+/* Navigation System Base Styles */
+@layer components {
+  /* Navigation container base styles */
+  .nav-container {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: var(--nav-drawer-z);
+    transition: 
+      width var(--nav-transition-duration) var(--nav-transition-easing),
+      background-color var(--motion-duration-fast) var(--motion-easing-standard);
+  }
+
+  /* Navigation rail state */
+  .nav-rail {
+    width: var(--nav-width-rail);
+    background-color: var(--nav-rail-bg);
+    border-right: 1px solid var(--nav-rail-border);
+    position: relative;
+  }
+
+  .nav-rail::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--nav-rail-overlay);
+    pointer-events: none;
+  }
+
+  /* Navigation drawer state */
+  .nav-drawer {
+    width: var(--nav-width-drawer);
+    background-color: var(--nav-drawer-bg);
+    border-right: 1px solid var(--nav-drawer-border);
+    position: relative;
+  }
+
+  .nav-drawer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--nav-drawer-overlay);
+    pointer-events: none;
+  }
+
+  /* Navigation modal state */
+  .nav-modal {
+    width: var(--nav-width-modal);
+    max-width: var(--nav-modal-max-width);
+    background-color: var(--nav-modal-bg);
+    border: 1px solid var(--nav-modal-border);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: var(--nav-modal-z);
+    transform: translateX(-100%);
+    transition: transform var(--nav-modal-enter-duration) var(--motion-easing-decelerated);
+  }
+
+  .nav-modal.open {
+    transform: translateX(0);
+  }
+
+  .nav-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--nav-modal-overlay);
+    pointer-events: none;
+  }
+
+  /* Navigation modal backdrop */
+  .nav-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--nav-modal-backdrop);
+    z-index: var(--nav-modal-backdrop-z);
+    opacity: 0;
+    visibility: hidden;
+    transition: 
+      opacity var(--nav-modal-enter-duration) var(--motion-easing-decelerated),
+      visibility var(--nav-modal-enter-duration) var(--motion-easing-decelerated);
+  }
+
+  .nav-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Navigation header */
+  .nav-header {
+    height: var(--nav-header-height);
+    padding: var(--nav-container-padding);
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--nav-drawer-border);
+  }
+
+  /* Navigation content area */
+  .nav-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--nav-container-padding);
+    display: flex;
+    flex-direction: column;
+    gap: var(--nav-item-gap);
+  }
+
+  /* Navigation item base styles */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    height: var(--nav-item-height);
+    padding: 0 var(--nav-item-padding);
+    gap: var(--nav-icon-to-text);
+    background: var(--nav-item-default-bg);
+    color: var(--nav-item-default-color);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    transition: 
+      background-color var(--nav-item-hover-duration) var(--nav-item-hover-easing),
+      color var(--nav-item-hover-duration) var(--nav-item-hover-easing),
+      transform var(--motion-duration-fast) var(--motion-easing-standard);
+    position: relative;
+    user-select: none;
+  }
+
+  .nav-item:hover {
+    background: var(--nav-item-hover-bg);
+    color: var(--nav-item-hover-color);
+  }
+
+  .nav-item:focus {
+    outline: none;
+    background: var(--nav-item-focused-bg);
+    color: var(--nav-item-focused-color);
+    box-shadow: 0 0 0 2px var(--nav-item-focused-outline);
+  }
+
+  .nav-item.active {
+    background: var(--nav-item-active-bg);
+    color: var(--nav-item-active-color);
+  }
+
+  .nav-item:disabled {
+    opacity: var(--nav-item-disabled-opacity);
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Navigation item icons */
+  .nav-item-icon {
+    width: var(--nav-icon-size);
+    height: var(--nav-icon-size);
+    flex-shrink: 0;
+    color: var(--nav-item-default-icon);
+    transition: color var(--nav-item-hover-duration) var(--nav-item-hover-easing);
+  }
+
+  .nav-item:hover .nav-item-icon {
+    color: var(--nav-item-hover-icon);
+  }
+
+  .nav-item.active .nav-item-icon {
+    color: var(--nav-item-active-icon);
+  }
+
+  .nav-item:focus .nav-item-icon {
+    color: var(--nav-item-focused-icon);
+  }
+
+  /* Navigation item text */
+  .nav-item-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: opacity var(--nav-transition-duration) var(--nav-transition-easing);
+  }
+
+  .nav-rail .nav-item-text {
+    opacity: 0;
+    width: 0;
+  }
+
+  /* Navigation badges */
+  .nav-item-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    background: var(--color-error);
+    color: var(--color-surface);
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    border-radius: 8px;
+    z-index: var(--nav-badge-z);
+    transform: scale(1);
+    transition: transform var(--motion-duration-fast) var(--motion-easing-emphasized);
+  }
+
+  .nav-item-badge:empty {
+    display: none;
+  }
+
+  .nav-item-badge.pulse {
+    animation: badge-pulse 2s ease-in-out infinite;
+  }
+
+  /* Navigation sections */
+  .nav-section {
+    margin-top: var(--nav-section-gap);
+  }
+
+  .nav-section:first-child {
+    margin-top: 0;
+  }
+
+  .nav-section-header {
+    padding: 0 var(--nav-item-padding);
+    margin-bottom: 8px;
+    color: var(--nav-section-header-color, #666666) !important;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    line-height: 16px;
+  }
+
+  .nav-rail .nav-section-header {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+  }
+
+  /* Navigation collapse button styles */
+  .nav-collapse-button {
+    color: var(--nav-toggle-color, #333333) !important;
+  }
+
+  .nav-collapse-button svg {
+    color: var(--nav-toggle-color, #333333) !important;
+  }
+
+  /* AGGRESSIVE THEME-SPECIFIC NAVIGATION CONTRAST FIXES */
+  
+  /* Light theme navigation - Force dark gray section headers */
+  html:not(.theme-dark) .nav-section-header,
+  body:not(.theme-dark) .nav-section-header,
+  .theme-light .nav-section-header,
+  .nav-section-header {
+    color: #666666 !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Light theme collapse button - Force dark gray */
+  html:not(.theme-dark) .nav-collapse-button,
+  body:not(.theme-dark) .nav-collapse-button,
+  .theme-light .nav-collapse-button,
+  html:not(.theme-dark) .nav-collapse-button svg,
+  body:not(.theme-dark) .nav-collapse-button svg,
+  .theme-light .nav-collapse-button svg {
+    color: #333333 !important;
+    fill: #333333 !important;
+  }
+
+  /* Dark theme navigation - Force light gray section headers */
+  html.theme-dark .nav-section-header,
+  body.theme-dark .nav-section-header,
+  .theme-dark .nav-section-header {
+    color: #CCCCCC !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Dark theme collapse button - Force white */
+  html.theme-dark .nav-collapse-button,
+  body.theme-dark .nav-collapse-button,
+  .theme-dark .nav-collapse-button,
+  html.theme-dark .nav-collapse-button svg,
+  body.theme-dark .nav-collapse-button svg,
+  .theme-dark .nav-collapse-button svg {
+    color: #FFFFFF !important;
+    fill: #FFFFFF !important;
+  }
+
+  /* Force specific section headers visibility */
+  [data-testid*="section-header"],
+  [class*="section-header"],
+  div:contains("Tools & Integration"),
+  div:contains("Configuration"), 
+  div:contains("Help & Support") {
+    color: var(--nav-section-header-color) !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+  }
+
+  /* Dark theme specific overrides for section headers */
+  .theme-dark [data-testid*="section-header"],
+  .theme-dark [class*="section-header"],
+  .theme-dark div:contains("Tools & Integration"),
+  .theme-dark div:contains("Configuration"),
+  .theme-dark div:contains("Help & Support") {
+    color: #CCCCCC !important;
+  }
+
+  /* Additional aggressive targeting for navigation elements */
+  
+  /* Target all potential navigation section elements */
+  nav .nav-section-header,
+  aside .nav-section-header,
+  [role="navigation"] .nav-section-header,
+  [data-component="navigation"] .nav-section-header,
+  [data-component*="nav"] .nav-section-header,
+  .navigation .nav-section-header,
+  .sidebar .nav-section-header {
+    color: #666666 !important;
+    font-weight: 600 !important;
+  }
+
+  /* Dark theme overrides for all navigation contexts */
+  .theme-dark nav .nav-section-header,
+  .theme-dark aside .nav-section-header,
+  .theme-dark [role="navigation"] .nav-section-header,
+  .theme-dark [data-component="navigation"] .nav-section-header,
+  .theme-dark [data-component*="nav"] .nav-section-header,
+  .theme-dark .navigation .nav-section-header,
+  .theme-dark .sidebar .nav-section-header {
+    color: #CCCCCC !important;
+  }
+
+  /* Target collapse buttons in all contexts */
+  button[class*="collapse"],
+  button[data-testid*="collapse"], 
+  button[aria-label*="collapse"],
+  button[aria-label*="toggle"],
+  .collapse-button,
+  .toggle-button,
+  [data-component*="toggle"] button {
+    color: #333333 !important;
+  }
+
+  /* Dark theme collapse buttons */
+  .theme-dark button[class*="collapse"],
+  .theme-dark button[data-testid*="collapse"], 
+  .theme-dark button[aria-label*="collapse"],
+  .theme-dark button[aria-label*="toggle"],
+  .theme-dark .collapse-button,
+  .theme-dark .toggle-button,
+  .theme-dark [data-component*="toggle"] button {
+    color: #FFFFFF !important;
+  }
+
+  /* SVG icons inside buttons - aggressive targeting */
+  button svg,
+  button svg path,
+  .nav-collapse-button svg,
+  .nav-collapse-button svg path,
+  [class*="collapse"] svg,
+  [class*="collapse"] svg path {
+    color: inherit !important;
+    fill: currentColor !important;
+    stroke: currentColor !important;
+  }
+
+  /* Navigation divider */
+  .nav-divider {
+    height: 1px;
+    background: var(--nav-drawer-border);
+    margin: var(--spacing-md) var(--nav-item-padding);
+  }
+
+  /* Navigation user profile area */
+  .nav-user-profile {
+    margin-top: auto;
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--nav-drawer-border);
+  }
+
+  .nav-user-profile .nav-item {
+    padding: var(--spacing-sm) var(--nav-item-padding);
+  }
+
+  .nav-user-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .nav-user-info {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .nav-user-name {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 20px;
+    color: var(--nav-item-default-color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-user-email {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--color-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0.8;
+  }
+
+  /* Navigation tooltips for rail mode */
+  .nav-tooltip {
+    position: absolute;
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--color-surface);
+    color: var(--color-on-surface);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    box-shadow: var(--color-shadow-medium);
+    z-index: var(--nav-tooltip-z);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: 
+      opacity var(--motion-duration-medium) var(--motion-easing-decelerated) 500ms,
+      visibility var(--motion-duration-medium) var(--motion-easing-decelerated) 500ms;
+  }
+
+  .nav-rail .nav-item:hover .nav-tooltip {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .nav-tooltip::before {
+    content: '';
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 4px solid transparent;
+    border-right-color: var(--color-surface);
+  }
+}
+
+/* Navigation responsive utilities */
+@layer utilities {
+  .nav-w-rail { width: var(--nav-width-rail); }
+  .nav-w-drawer { width: var(--nav-width-drawer); }
+  .nav-w-modal { width: var(--nav-width-modal); }
+  .nav-h-item { height: var(--nav-item-height); }
+  .nav-h-header { height: var(--nav-header-height); }
+  .nav-p-container { padding: var(--nav-container-padding); }
+  .nav-p-item { padding: 0 var(--nav-item-padding); }
+  .nav-gap-items { gap: var(--nav-item-gap); }
+  .nav-gap-sections { gap: var(--nav-section-gap); }
+}
+
+/* Navigation keyframe animations */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
 }
 
 /* Loading spinner */

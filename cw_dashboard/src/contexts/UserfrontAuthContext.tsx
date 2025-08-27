@@ -101,6 +101,8 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setError(null);
 
+      console.log('[UserfrontAuth] Login attempt for:', credentials.email);
+
       // Prepare login options - Note: tenantId is NOT passed to Userfront.login()
       // The workspace/tenant is already configured via Userfront.init()
       const loginOptions: any = {
@@ -125,22 +127,95 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
       
       const response = await Userfront.login(loginOptions);
 
-      // Login response received - check for successful authentication
+      console.log('[UserfrontAuth] Login response received:', {
+        hasTokens: !!response?.tokens,
+        hasAccessToken: !!response?.tokens?.accessToken,
+        mode: response?.mode,
+        responseKeys: Object.keys(response || {}),
+        userId: response?.userId,
+        userUuid: response?.userUuid,
+        message: response?.message
+      });
       
-      // Check if login was successful - response may not contain tokens directly
-      // but Userfront will handle authentication state internally
-      if (response && (response.tokens?.accessToken || response.redirectTo || !response.error)) {
-        // Login successful - redirect to dashboard
+      // Check for successful login indicators
+      // In test mode, Userfront may return userId/userUuid without immediate tokens
+      const isLoginSuccessful = response?.userId || response?.userUuid || response?.tokens?.accessToken;
+      
+      if (response?.tokens?.accessToken) {
+        // Login successful with immediate access - redirect to dashboard
+        console.log('[UserfrontAuth] Login successful with immediate access, redirecting to dashboard');
         router.push('/');
+      } else if (isLoginSuccessful || (response && response.mode === 'test' && response.message === 'OK')) {
+        // Login successful - in test mode, we get userId/userUuid but tokens may be delayed
+        console.log('[UserfrontAuth] Login successful, setting up user session...');
+        
+        // Give Userfront a moment to establish the session
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check if user is now authenticated
+        if (window.Userfront?.user?.userId || response?.userId) {
+          console.log('[UserfrontAuth] User authenticated after login, redirecting to home');
+          router.push('/');
+          return; // Exit early to prevent error throwing
+        } else {
+          // This shouldn't happen for login, but handle it gracefully
+          console.log('[UserfrontAuth] Login successful but session not established, retrying...');
+          // Try one more time with a longer delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          if (window.Userfront?.user?.userId) {
+            console.log('[UserfrontAuth] User authenticated after retry, redirecting to home');
+            router.push('/');
+            return;
+          }
+          // If still not authenticated, throw error
+          throw new Error('Login successful but session could not be established. Please try again.');
+        }
+      } else if (response?.error) {
+        // Explicit error from Userfront
+        console.error('[UserfrontAuth] Login failed with error:', response.error);
+        throw new Error(response.error.message || response.message || 'Login failed - please check your credentials');
+      } else if (!response) {
+        // No response received - likely a network issue
+        throw new Error('No response from authentication server. Please check your connection.');
       } else {
-        console.error('[UserfrontAuth] Login failed:', response);
-        throw new Error(response?.message || 'Login failed - please check your credentials');
+        // Unexpected response format but might still be successful
+        console.log('[UserfrontAuth] Unexpected login response format, checking authentication state...');
+        
+        // Give it a moment to establish session
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (window.Userfront?.user?.userId) {
+          console.log('[UserfrontAuth] User authenticated despite unexpected response, redirecting to home');
+          router.push('/');
+          return;
+        } else {
+          console.error('[UserfrontAuth] Login failed with unexpected response:', response);
+          throw new Error('Login failed - please check your credentials');
+        }
       }
     } catch (err: any) {
-      console.error('Login error:', err);
-      const errorMessage = err.message || 'Login failed. Please check your credentials.';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      // Only log and handle actual errors, not successful logins
+      if (!window.Userfront?.user?.userId) {
+        console.error('[UserfrontAuth ERROR] Login error:', err);
+        
+        // Handle specific error messages
+        let friendlyErrorMessage = err.message || 'Login failed. Please check your credentials.';
+        
+        if (err.message?.includes('Invalid email or password') || err.message?.includes('Incorrect')) {
+          friendlyErrorMessage = 'Invalid email or password. Please try again.';
+        } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
+          friendlyErrorMessage = 'Network error. Please check your connection and try again.';
+        } else if (err.message?.includes('session could not be established')) {
+          friendlyErrorMessage = err.message;
+        }
+        
+        setError(friendlyErrorMessage);
+        throw new Error(friendlyErrorMessage);
+      } else {
+        // User is authenticated despite the error flow
+        console.log('[UserfrontAuth] User authenticated, login successful');
+        router.push('/');
+      }
     }
   }, [router]);
 
@@ -188,38 +263,88 @@ function InternalAuthProvider({ children }: { children: React.ReactNode }) {
         hasAccessToken: !!response?.tokens?.accessToken,
         mode: response?.mode,
         responseKeys: Object.keys(response || {}),
-        fullResponse: response
+        userId: response?.userId,
+        userUuid: response?.userUuid
       });
       
+      // Check for successful registration indicators
+      // In test mode, Userfront may return userId/userUuid without immediate tokens
+      const isRegistrationSuccessful = response?.userId || response?.userUuid || response?.tokens?.accessToken;
+      
       if (response.tokens?.accessToken) {
-        // Registration successful - manually redirect to main dashboard
-        console.log('[UserfrontAuth] Registration successful, redirecting to dashboard');
+        // Registration successful with immediate access - redirect to dashboard
+        console.log('[UserfrontAuth] Registration successful with immediate access, redirecting to dashboard');
         router.push('/');
-      } else if (response.mode === 'live' && !response.tokens) {
+      } else if (response.mode === 'live' && !response.tokens && !isRegistrationSuccessful) {
         // User needs to verify email in live mode
         console.log('[UserfrontAuth] Email verification required');
         router.push('/auth/verify-email');
+      } else if (isRegistrationSuccessful || (response && response.mode === 'test' && response.message === 'OK')) {
+        // Registration successful - in test mode, we get userId/userUuid but tokens may be delayed
+        console.log('[UserfrontAuth] Registration successful, setting up user session...');
+        
+        // Give Userfront a moment to establish the session
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Check if user is now authenticated
+        if (window.Userfront?.user?.userId || response?.userId) {
+          console.log('[UserfrontAuth] User authenticated after registration, redirecting to home');
+          router.push('/');
+          return; // Exit early to prevent error throwing
+        } else {
+          // If still not authenticated, redirect to sign in
+          console.log('[UserfrontAuth] Registration successful, redirecting to sign in');
+          router.push('/auth/signin');
+          return; // Exit early to prevent error throwing
+        }
+      } else if (response?.error) {
+        // Explicit error from Userfront
+        console.error('[UserfrontAuth] Registration failed with error:', response.error);
+        throw new Error(response.error.message || response.message || 'Registration failed');
       } else {
-        console.error('[UserfrontAuth] Registration failed:', response);
-        throw new Error('Registration failed');
+        // Unexpected response format
+        console.error('[UserfrontAuth] Unexpected registration response:', response);
+        throw new Error('Registration failed - unexpected response format');
       }
     } catch (err: any) {
-      console.error('[UserfrontAuth ERROR] Registration failed:', err);
-      
-      
-      // Check for specific error messages
-      let errorMessage = err.message || 'Registration failed. Please try again.';
-      
-      // Handle common Userfront errors
-      if (errorMessage.includes('Email exists') || errorMessage.includes('already exists')) {
-        errorMessage = 'This email is already registered. Please use a different email or sign in.';
-      } else if (errorMessage.includes('Password must')) {
-        // Password validation error - log the exact requirements
-        console.log('[UserfrontAuth ERROR] Password validation failed:', errorMessage);
+      // Only log and handle actual errors, not successful registrations
+      if (!window.Userfront?.user?.userId) {
+        console.error('[UserfrontAuth ERROR] Registration error:', err);
+        
+        // Check if this is actually a network/API error vs registration failure
+        const errorMessage = err.message || 'Registration failed. Please try again.';
+        
+        // Handle specific Userfront errors
+        let friendlyErrorMessage = errorMessage;
+        
+        if (errorMessage.includes('Email exists') || errorMessage.includes('already exists')) {
+          friendlyErrorMessage = 'This email is already registered. Please use a different email or sign in.';
+        } else if (errorMessage.includes('Password must')) {
+          // Password validation error - log the exact requirements
+          console.log('[UserfrontAuth ERROR] Password validation failed:', errorMessage);
+          friendlyErrorMessage = 'Password does not meet requirements. Please choose a stronger password.';
+        } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+          friendlyErrorMessage = 'Network error. Please check your connection and try again.';
+        } else if (errorMessage.includes('unexpected response format')) {
+          // Don't show technical error to user
+          friendlyErrorMessage = 'Registration processing. Please wait...';
+          // Check authentication state after a delay
+          setTimeout(() => {
+            if (window.Userfront?.user?.userId) {
+              console.log('[UserfrontAuth] User authenticated after delayed processing');
+              router.push('/');
+            }
+          }, 1500);
+          return; // Don't throw error for delayed processing
+        }
+        
+        setError(friendlyErrorMessage);
+        throw new Error(friendlyErrorMessage);
+      } else {
+        // User is authenticated despite the error flow
+        console.log('[UserfrontAuth] User authenticated, registration successful');
+        router.push('/');
       }
-      
-      setError(errorMessage);
-      throw new Error(errorMessage);
     }
   }, [router]);
 

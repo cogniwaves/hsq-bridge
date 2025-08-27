@@ -8,6 +8,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { lightTheme } from './light';
 import { darkTheme } from './dark';
+import { navigationTokens } from '../tokens/navigation';
 
 // Theme types
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -23,6 +24,9 @@ interface ThemeContextType {
   
   // Current theme object
   theme: Theme;
+  
+  // Navigation tokens for component consumption
+  navigation: typeof navigationTokens;
   
   // Theme switching functions
   setMode: (mode: ThemeMode) => void;
@@ -170,6 +174,7 @@ export function ThemeProvider({
     mode,
     resolvedMode,
     theme,
+    navigation: navigationTokens,
     setMode,
     toggleMode,
     systemPreference,
@@ -188,6 +193,21 @@ export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   
   if (context === undefined) {
+    // During SSR or static generation, return safe defaults
+    if (typeof window === 'undefined') {
+      const defaultTheme = createTheme('light');
+      const defaultNavigation = createNavigationTokens();
+      return {
+        mode: 'light',
+        resolvedMode: 'light',
+        systemPreference: 'light',
+        theme: defaultTheme,
+        navigation: defaultNavigation,
+        setMode: () => {},
+        toggleMode: () => {},
+        isLoading: false,
+      };
+    }
     throw new Error('useTheme must be used within a ThemeProvider');
   }
   
@@ -196,7 +216,7 @@ export function useTheme(): ThemeContextType {
 
 // CSS helper hook for styled components
 export function useThemeStyles() {
-  const { theme, resolvedMode } = useTheme();
+  const { theme, resolvedMode, navigation } = useTheme();
   
   return {
     theme,
@@ -208,6 +228,34 @@ export function useThemeStyles() {
     motion: theme.motion,
     breakpoints: theme.breakpoints,
     components: theme.components,
+    navigation,
+  };
+}
+
+// Navigation-specific theme hook for easy navigation token access
+export function useNavigationTheme() {
+  const { navigation, resolvedMode, theme } = useTheme();
+  
+  // Safe access with fallbacks during SSR
+  const safeResolvedMode = resolvedMode || 'light';
+  const safeNavigation = navigation || createNavigationTokens();
+  
+  return {
+    navigation: safeNavigation,
+    mode: safeResolvedMode,
+    // Theme-specific navigation tokens with safe access
+    surfaces: safeNavigation.surfaces?.[safeResolvedMode] || safeNavigation.surfaces?.light || {},
+    elevation: safeNavigation.elevation?.[safeResolvedMode] || safeNavigation.elevation?.light || {},
+    itemStates: safeNavigation.itemStates?.[safeResolvedMode] || safeNavigation.itemStates?.light || {},
+    // Layout and spacing
+    layout: safeNavigation.layout || {},
+    spacing: safeNavigation.spacing || {},
+    typography: safeNavigation.typography || {},
+    motion: safeNavigation.motion || {},
+    breakpoints: safeNavigation.breakpoints || {},
+    zIndex: safeNavigation.zIndex || {},
+    a11y: safeNavigation.a11y || {},
+    examples: safeNavigation.examples || {},
   };
 }
 

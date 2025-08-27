@@ -163,7 +163,7 @@ export function formatUserDisplay(user: any, includeTenant = false): string {
 export function buildTenantRedirectUrl(
   baseUrl: string,
   tenantId?: string,
-  useSub domain = false
+  useSubdomain = false
 ): string {
   if (!tenantId) {
     return baseUrl;
