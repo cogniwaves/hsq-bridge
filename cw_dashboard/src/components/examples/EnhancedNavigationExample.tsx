@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { EnhancedNavigationRail } from '../navigation/EnhancedNavigationRail';
-import { EnhancedNavigationDrawer } from '../navigation/EnhancedNavigationDrawer';
+import { NavigationDrawer } from '../navigation/NavigationDrawer';
 import { navigationConfig } from '../navigation/navigationConfig';
 import { useBadges } from '../../hooks/useBadges';
 import { useSmartNavigation } from '../../hooks/useSmartNavigation';
@@ -218,33 +218,13 @@ export function EnhancedNavigationExample() {
           }}
         />
       ) : (
-        <EnhancedNavigationDrawer
+        <NavigationDrawer
           config={enhancedNavigationConfig}
           activeItemId={activeItemId}
           onItemClick={handleItemClick}
-          isOpen={true}
-          onClose={() => setViewMode('rail')}
-          
-          // Advanced features enabled
-          enableTooltips={true}
-          enableBadges={true}
-          enableAnimations={true}
-          enableGestures={true}
-          enableKeyboardNavigation={true}
-          
-          // Configuration
-          animationDuration={300}
-          
-          // Event handlers
-          onBadgeClick={handleBadgeClick}
-          onSwipeLeft={() => setViewMode('rail')}
-          
-          // Accessibility announcements
-          announcements={{
-            itemFocused: (itemName) => console.log(`🎯 Focused: ${itemName}`),
-            itemActivated: (itemName) => console.log(`✅ Activated: ${itemName}`),
-            badgeUpdated: (itemName, count) => console.log(`🔔 ${itemName}: ${count} notifications`),
-          }}
+          onCollapseClick={() => setViewMode('rail')}
+          showCollapseButton={true}
+          a11yLabel="Enhanced navigation drawer"
         />
       )}
 
