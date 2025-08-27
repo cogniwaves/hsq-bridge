@@ -37,6 +37,10 @@ export function NavigationProfile({
   const modalSurfaces = surfaces?.modal || {};
   const drawerSurfaces = surfaces?.drawer || {};
   
+  // Safe access to theme item states with fallbacks
+  const safeItemStates = itemStates || {};
+  const currentModeStates = safeItemStates[themeMode] || safeItemStates['light'] || {};
+  
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -137,8 +141,8 @@ export function NavigationProfile({
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: '50%',
-            backgroundColor: itemStates[themeMode].hover.background,
-            color: itemStates[themeMode].default.color,
+            backgroundColor: currentModeStates?.hover?.background || 'var(--color-primary-container, rgba(255, 105, 0, 0.08))',
+            color: currentModeStates?.default?.color || 'var(--color-text-primary, #000000)',
             border: 'none',
             cursor: 'pointer',
             position: 'relative',
@@ -152,8 +156,8 @@ export function NavigationProfile({
                 width: '40px',
                 height: '40px',
                 borderRadius: '50%',
-                backgroundColor: itemStates[themeMode].active.background,
-                color: itemStates[themeMode].active.color,
+                backgroundColor: currentModeStates?.active?.background || 'var(--color-primary, #ff6900)',
+                color: currentModeStates?.active?.color || 'var(--color-on-primary, #ffffff)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -227,7 +231,7 @@ export function NavigationProfile({
           alignItems: 'center',
           gap: spacing.userProfile.avatarToText,
           padding: `8px ${spacing.container[mode].itemPadding}`,
-          backgroundColor: isMenuOpen ? itemStates[themeMode].hover.background : 'transparent',
+          backgroundColor: isMenuOpen ? currentModeStates?.hover?.background || 'var(--color-primary-container, rgba(255, 105, 0, 0.08))' : 'transparent',
           border: 'none',
           borderRadius: '8px',
           cursor: 'pointer',
@@ -242,8 +246,8 @@ export function NavigationProfile({
               width: '40px',
               height: '40px',
               borderRadius: '50%',
-              backgroundColor: itemStates[themeMode].active.background,
-              color: itemStates[themeMode].active.color,
+              backgroundColor: currentModeStates?.active?.background || 'var(--color-primary, #ff6900)',
+              color: currentModeStates?.active?.color || 'var(--color-on-primary, #ffffff)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -261,7 +265,7 @@ export function NavigationProfile({
           <div
             style={{
               ...typography.userProfile.name,
-              color: itemStates[themeMode].default.color,
+              color: currentModeStates?.default?.color || 'var(--color-text-primary, #000000)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -273,7 +277,7 @@ export function NavigationProfile({
             <div
               style={{
                 ...typography.userProfile.email,
-                color: itemStates[themeMode].default.icon,
+                color: currentModeStates?.default?.icon || 'var(--color-text-secondary, #666666)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -286,7 +290,7 @@ export function NavigationProfile({
             <div
               style={{
                 ...typography.userProfile.role,
-                color: itemStates[themeMode].default.icon,
+                color: currentModeStates?.default?.icon || 'var(--color-text-secondary, #666666)',
                 marginTop: '2px',
               }}
             >
@@ -301,7 +305,7 @@ export function NavigationProfile({
           style={{
             transform: isMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 200ms ease',
-            color: itemStates[themeMode].default.icon,
+            color: currentModeStates?.default?.icon || 'var(--color-text-secondary, #666666)',
           }}
         />
       </button>
@@ -366,7 +370,7 @@ function ProfileMenu({
     borderRadius: '6px',
     backgroundColor: 'transparent',
     border: 'none',
-    color: itemStates[themeMode].default.color,
+    color: currentModeStates?.default?.color || 'var(--color-text-primary, #000000)',
     fontSize: '14px',
     cursor: 'pointer',
     width: '100%',
@@ -375,8 +379,8 @@ function ProfileMenu({
   };
 
   const menuItemHoverStyle = {
-    backgroundColor: itemStates[themeMode].hover.background,
-    color: itemStates[themeMode].hover.color,
+    backgroundColor: currentModeStates?.hover?.background || 'var(--color-primary-container, rgba(255, 105, 0, 0.08))',
+    color: currentModeStates?.hover?.color || 'var(--color-text-primary, #000000)',
   };
 
   return (
@@ -401,7 +405,7 @@ function ProfileMenu({
         <span>Settings</span>
       </button>
 
-      <div style={{ height: '1px', backgroundColor: itemStates[themeMode].default.icon, opacity: 0.2, margin: '8px 0' }} />
+      <div style={{ height: '1px', backgroundColor: currentModeStates?.default?.icon || 'var(--color-text-secondary, #666666)', opacity: 0.2, margin: '8px 0' }} />
 
       <button
         onClick={onLogoutClick}
