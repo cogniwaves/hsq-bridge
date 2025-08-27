@@ -25,6 +25,11 @@ export function NavigationItem({
   a11yLabel,
 }: NavigationItemProps) {
   const { itemStates, typography, spacing, layout, motion, mode: themeMode } = useNavigationTheme();
+  
+  // Safe access to theme item states with fallbacks
+  const safeItemStates = itemStates || {};
+  const currentModeStates = safeItemStates[themeMode] || safeItemStates['light'] || {};
+  
   const [isHovered, setIsHovered] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [showTooltipState, setShowTooltipState] = useState(false);
@@ -37,20 +42,20 @@ export function NavigationItem({
 
   // Get current state styles
   const getItemStyles = () => {
-    const baseStyles = itemStates[themeMode].default;
+    const baseStyles = currentModeStates.default || {};
     let currentStyles = { ...baseStyles };
 
     if (item.disabled) {
       currentStyles = {
-        ...itemStates[themeMode].disabled,
+        ...currentModeStates.disabled || {},
         cursor: 'not-allowed',
       };
     } else if (isActive) {
-      currentStyles = itemStates[themeMode].active;
+      currentStyles = currentModeStates.active || {};
     } else if (isFocused) {
-      currentStyles = itemStates[themeMode].focused;
+      currentStyles = currentModeStates.focused || {};
     } else if (isHovered) {
-      currentStyles = itemStates[themeMode].hover;
+      currentStyles = currentModeStates.hover || {};
     }
 
     return currentStyles;
@@ -129,9 +134,9 @@ export function NavigationItem({
   const currentStyles = getItemStyles();
 
   // Calculate dimensions based on mode
-  const itemHeight = mode === 'rail' ? layout.rail.itemHeight : layout[mode].itemHeight;
-  const iconSize = layout[mode].iconSize;
-  const horizontalPadding = mode === 'rail' ? '12px' : spacing.container[mode].itemPadding;
+  const itemHeight = mode === 'rail' ? layout?.rail?.itemHeight || '48px' : layout?.[mode]?.itemHeight || '48px';
+  const iconSize = layout?.[mode]?.iconSize || '24px';
+  const horizontalPadding = mode === 'rail' ? '12px' : spacing?.container?.[mode]?.itemPadding || '16px';
 
   // Base item styles
   const itemStyle: React.CSSProperties = {
@@ -140,7 +145,7 @@ export function NavigationItem({
     height: itemHeight,
     padding: `0 ${horizontalPadding}`,
     marginLeft: level > 0 ? `${level * 24}px` : 0,
-    marginBottom: spacing.container[mode].itemGap,
+    marginBottom: spacing?.container?.[mode]?.itemGap || '4px',
     backgroundColor: currentStyles.background,
     color: currentStyles.color,
     borderRadius: '8px',
@@ -150,11 +155,11 @@ export function NavigationItem({
     width: '100%',
     position: 'relative',
     opacity: item.disabled ? currentStyles.opacity : 1,
-    transition: `all ${motion.item.hover.duration} ${motion.item.hover.easing}`,
+    transition: `all ${motion?.item?.hover?.duration || '200ms'} ${motion?.item?.hover?.easing || 'ease'}`,
     outline: isFocused ? `2px solid ${currentStyles.outline}` : 'none',
     outlineOffset: '-2px',
     justifyContent: mode === 'rail' ? 'center' : 'flex-start',
-    gap: shouldShowLabel ? spacing.item.iconToText : 0,
+    gap: shouldShowLabel ? spacing?.item?.iconToText || '12px' : 0,
   };
 
   // Icon component
@@ -218,12 +223,12 @@ export function NavigationItem({
           transform: mode === 'rail' ? 'none' : 'translateY(-50%)',
           backgroundColor: colors.bg,
           color: colors.text,
-          ...typography.badge,
+          ...(typography?.badge || {}),
           padding: '2px 6px',
           borderRadius: '12px',
           minWidth: '20px',
           textAlign: 'center',
-          animation: item.badge.pulse ? `pulse ${motion.badge.pulse.duration} ${motion.badge.pulse.easing} infinite` : undefined,
+          animation: item.badge?.pulse ? `pulse ${motion?.badge?.pulse?.duration || '2s'} ${motion?.badge?.pulse?.easing || 'ease-in-out'} infinite` : undefined,
         }}
       >
         {item.badge.count || item.badge.text}
@@ -246,14 +251,14 @@ export function NavigationItem({
           marginLeft: '12px',
           backgroundColor: 'rgba(0, 0, 0, 0.9)',
           color: 'white',
-          ...typography.tooltip,
+          ...(typography?.tooltip || {}),
           padding: '6px 12px',
           borderRadius: '6px',
           whiteSpace: 'nowrap',
           zIndex: 1000,
           pointerEvents: 'none',
           opacity: showTooltipState ? 1 : 0,
-          transition: `opacity ${motion.tooltip.show.duration} ${motion.tooltip.show.easing}`,
+          transition: `opacity ${motion?.tooltip?.show?.duration || '200ms'} ${motion?.tooltip?.show?.easing || 'ease'}`,
         }}
       >
         {item.label}
@@ -273,7 +278,7 @@ export function NavigationItem({
       {shouldShowLabel && (
         <span
           style={{
-            ...typography.item.primary,
+            ...(typography?.item?.primary || {}),
             flex: 1,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
