@@ -283,6 +283,10 @@ export const darkTheme = {
     '--nav-modal-backdrop-z': navigationTokens.zIndex.modalBackdrop.toString(),
     '--nav-tooltip-z': navigationTokens.zIndex.tooltip.toString(),
     '--nav-badge-z': navigationTokens.zIndex.badge.toString(),
+    
+    // Navigation-specific colors for better contrast
+    '--nav-section-header-color': '#CCCCCC',
+    '--nav-toggle-color': '#FFFFFF',
   },
 } as const;
 

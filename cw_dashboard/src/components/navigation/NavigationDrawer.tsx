@@ -225,7 +225,7 @@ export function NavigationDrawer({
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: drawerSurfaces.border || 'var(--color-surface-variant, #e0e0e0)',
+              color: 'var(--nav-toggle-color, #333333)',
               transition: 'background-color 200ms ease',
             }}
             onMouseEnter={(e) => {

@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import { NavigationExample } from '../../components/examples/NavigationExample';
+import { EnhancedNavigationExample } from '../../components/examples/EnhancedNavigationExample';
 import { SideNavigation, useNavigationContext } from '../../components/navigation/SideNavigation';
 import { ThemeToggle } from '../../design-system/components/ThemeToggle';
 import Link from 'next/link';
 
 export default function NavigationPreviewPage() {
-  const [demoMode, setDemoMode] = useState<'examples' | 'live'>('live');
+  const [demoMode, setDemoMode] = useState<'examples' | 'enhanced' | 'live'>('enhanced');
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-background)' }}>
@@ -25,7 +26,7 @@ export default function NavigationPreviewPage() {
               Navigation System Preview
             </h1>
             <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-              Material Design 3 Navigation Components - Phase 3 Complete
+              Advanced Navigation System - Phase 4 Complete with Enterprise Features
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -52,6 +53,18 @@ export default function NavigationPreviewPage() {
           </span>
           <div className="flex space-x-2">
             <button
+              onClick={() => setDemoMode('enhanced')}
+              className={`px-3 py-1 text-sm rounded transition-colors ${
+                demoMode === 'enhanced' ? 'font-medium' : ''
+              }`}
+              style={{
+                backgroundColor: demoMode === 'enhanced' ? 'var(--color-primary)' : 'var(--color-surface-variant)',
+                color: demoMode === 'enhanced' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
+              }}
+            >
+              Phase 4 Enhanced
+            </button>
+            <button
               onClick={() => setDemoMode('live')}
               className={`px-3 py-1 text-sm rounded transition-colors ${
                 demoMode === 'live' ? 'font-medium' : ''
@@ -73,14 +86,16 @@ export default function NavigationPreviewPage() {
                 color: demoMode === 'examples' ? 'var(--color-on-primary)' : 'var(--color-text-secondary)'
               }}
             >
-              Design Examples
+              Basic Examples
             </button>
           </div>
         </div>
       </div>
 
       {/* Demo Content */}
-      {demoMode === 'live' ? (
+      {demoMode === 'enhanced' ? (
+        <EnhancedNavigationExample />
+      ) : demoMode === 'live' ? (
         <SideNavigation>
           <LiveNavigationDemo />
         </SideNavigation>
@@ -164,14 +179,16 @@ function LiveNavigationDemo() {
                   Features Implemented
                 </h4>
                 <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li>✅ Responsive navigation modes (rail/drawer/modal)</li>
-                  <li>✅ Theme integration with design tokens</li>
-                  <li>✅ Userfront authentication integration</li>
-                  <li>✅ HSQ Bridge navigation configuration</li>
-                  <li>✅ Badge and notification support</li>
-                  <li>✅ Nested navigation items</li>
-                  <li>✅ User profile integration</li>
-                  <li>✅ Smooth animations and transitions</li>
+                  <li>✅ Advanced navigation rail with tooltips & badges</li>
+                  <li>✅ Collapsible sections with smooth animations</li>
+                  <li>✅ Smart navigation with recent items</li>
+                  <li>✅ Enhanced keyboard navigation (Alt+M, Ctrl+K)</li>
+                  <li>✅ Live badge updates with pulse animations</li>
+                  <li>✅ Intelligent tooltip positioning</li>
+                  <li>✅ Swipe gestures for mobile</li>
+                  <li>✅ Material Design ripple effects</li>
+                  <li>✅ User profile with avatar upload</li>
+                  <li>✅ Navigation preferences persistence</li>
                 </ul>
               </div>
 
@@ -180,14 +197,16 @@ function LiveNavigationDemo() {
                   Technical Details
                 </h4>
                 <ul className="space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  <li>• TypeScript with full type safety</li>
-                  <li>• CSS-in-JS with theme variables</li>
-                  <li>• React hooks for state management</li>
-                  <li>• Tailwind CSS for responsive design</li>
-                  <li>• Material Design 3 principles</li>
-                  <li>• Accessibility best practices</li>
-                  <li>• Performance optimized components</li>
-                  <li>• Docker deployment ready</li>
+                  <li>• Enterprise-grade hook system (15 hooks)</li>
+                  <li>• Advanced animation system with presets</li>
+                  <li>• Touch gesture recognition for mobile</li>
+                  <li>• User preference persistence in localStorage</li>
+                  <li>• Live badge system with real-time updates</li>
+                  <li>• Screen reader accessibility with announcements</li>
+                  <li>• Auto-hide notifications with timers</li>
+                  <li>• Context-aware tooltip positioning</li>
+                  <li>• Keyboard shortcuts and type-ahead search</li>
+                  <li>• Docker deployment with Phase 4 features</li>
                 </ul>
               </div>
             </div>

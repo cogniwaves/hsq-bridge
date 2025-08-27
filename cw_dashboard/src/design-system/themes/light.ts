@@ -275,6 +275,10 @@ export const lightTheme = {
     '--nav-modal-backdrop-z': navigationTokens.zIndex.modalBackdrop.toString(),
     '--nav-tooltip-z': navigationTokens.zIndex.tooltip.toString(),
     '--nav-badge-z': navigationTokens.zIndex.badge.toString(),
+    
+    // Navigation-specific colors for better contrast
+    '--nav-section-header-color': '#666666',
+    '--nav-toggle-color': '#333333',
   },
 } as const;
 
