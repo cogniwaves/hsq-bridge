@@ -71,16 +71,80 @@ test: ## Run all tests
 	@./scripts/run-tests.sh
 
 test-unit: ## Run unit tests only
-	@./scripts/run-tests.sh --unit
+	@./scripts/run-tests.sh unit
 
 test-integration: ## Run integration tests only
-	@./scripts/run-tests.sh --integration
+	@./scripts/run-tests.sh integration
+
+test-backend: ## Run backend tests only
+	@./scripts/run-tests.sh backend
+
+test-dashboard: ## Run dashboard tests only
+	@./scripts/run-tests.sh dashboard
+
+test-a11y: ## Run accessibility tests
+	@./scripts/run-tests.sh a11y
+
+test-performance: ## Run performance tests
+	@./scripts/run-tests.sh performance
+
+test-quality: ## Run code quality checks
+	@./scripts/run-tests.sh quality
 
 test-coverage: ## Run tests with coverage report
-	@./scripts/run-tests.sh --coverage
+	@./scripts/run-tests.sh all --coverage
 
-test-watch: ## Run tests in watch mode
-	@./scripts/run-tests.sh --watch
+test-watch-backend: ## Run backend tests in watch mode
+	@./scripts/run-tests.sh watch backend
+
+test-watch-dashboard: ## Run dashboard tests in watch mode
+	@./scripts/run-tests.sh watch dashboard
+
+test-ci: ## Run tests in CI mode
+	@./scripts/run-tests.sh ci
+
+test-api: ## Test API endpoints
+	@./scripts/test-api.sh
+
+test-api-health: ## Test API health endpoints
+	@./scripts/test-api.sh health
+
+test-setup: ## Setup test environment
+	@./scripts/setup-test-db.sh setup
+
+test-clean: ## Clean test environment
+	@./scripts/setup-test-db.sh clean
+
+test-reset: ## Reset test environment
+	@./scripts/setup-test-db.sh reset
+
+# Coverage Reporting Commands
+coverage-report: ## Generate comprehensive coverage report
+	@./scripts/generate-coverage-report.sh
+
+coverage-check: ## Check coverage quality gates
+	@./scripts/generate-coverage-report.sh check-gates
+
+coverage-badge: ## Generate coverage badge
+	@./scripts/generate-coverage-report.sh badge
+
+coverage-open: ## Open coverage reports in browser
+	@if [ -f "test-reports/coverage-report.html" ]; then \
+		xdg-open test-reports/coverage-report.html 2>/dev/null || \
+		open test-reports/coverage-report.html 2>/dev/null || \
+		echo "Coverage report available at: test-reports/coverage-report.html"; \
+	else \
+		echo "Coverage report not found. Run 'make coverage-report' first."; \
+	fi
+
+# Development Setup Commands
+install-hooks: ## Install git hooks for quality gates
+	@./scripts/install-git-hooks.sh
+
+setup-dev: ## Complete development setup
+	@echo "🚀 Setting up HSQ Bridge development environment..."
+	@./scripts/install-git-hooks.sh
+	@echo "✅ Development setup completed!"
 
 # Development Tools
 logs: ## Show logs for all services

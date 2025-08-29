@@ -1,0 +1,289 @@
+name: PR Quality Checks
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+    types: [opened, synchronize, reopened]
+
+env:
+  NODE_ENV: test
+  CI: true
+
+jobs:
+  # Fast quality checks for PR feedback
+  quick-checks:
+    runs-on: ubuntu-latest
+    name: Quick Quality Checks
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for better diff analysis
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            cw_app/package-lock.json
+            cw_dashboard/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd cw_app
+          npm ci --prefer-offline --no-audit
+
+      - name: Install dashboard dependencies
+        run: |
+          cd cw_dashboard
+          npm ci --prefer-offline --no-audit
+
+      - name: Check for changed files
+        id: changes
+        run: |
+          echo "backend_changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_app/' || echo 0)" >> $GITHUB_OUTPUT
+          echo "dashboard_changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_dashboard/' || echo 0)" >> $GITHUB_OUTPUT
+
+      - name: Run backend linting (if changed)
+        if: steps.changes.outputs.backend_changed > 0
+        run: |
+          cd cw_app
+          npm run lint
+
+      - name: Run dashboard linting (if changed)
+        if: steps.changes.outputs.dashboard_changed > 0
+        run: |
+          cd cw_dashboard
+          npm run lint
+
+      - name: Run dashboard type checking (if changed)
+        if: steps.changes.outputs.dashboard_changed > 0
+        run: |
+          cd cw_dashboard
+          npm run type-check
+
+      - name: Check for sensitive files
+        run: |
+          # Check for accidentally committed sensitive files
+          if git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -E '\.(env|key|pem|p12)$|secrets|credentials'; then
+            echo "❌ Potentially sensitive files detected in PR"
+            exit 1
+          fi
+          echo "✅ No sensitive files detected"
+
+  # Unit tests (faster subset)
+  unit-tests:
+    runs-on: ubuntu-latest
+    name: Unit Tests
+    needs: quick-checks
+    
+    strategy:
+      matrix:
+        component: [backend, dashboard]
+        
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            cw_app/package-lock.json
+            cw_dashboard/package-lock.json
+
+      - name: Check for changes (backend)
+        if: matrix.component == 'backend'
+        id: backend-changes
+        run: |
+          changes=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_app/' || echo 0)
+          echo "changed=$changes" >> $GITHUB_OUTPUT
+
+      - name: Check for changes (dashboard)
+        if: matrix.component == 'dashboard'
+        id: dashboard-changes
+        run: |
+          changes=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_dashboard/' || echo 0)
+          echo "changed=$changes" >> $GITHUB_OUTPUT
+
+      - name: Install backend dependencies
+        if: matrix.component == 'backend' && steps.backend-changes.outputs.changed > 0
+        run: |
+          cd cw_app
+          npm ci --prefer-offline --no-audit
+
+      - name: Install dashboard dependencies
+        if: matrix.component == 'dashboard' && steps.dashboard-changes.outputs.changed > 0
+        run: |
+          cd cw_dashboard
+          npm ci --prefer-offline --no-audit
+
+      - name: Run backend unit tests
+        if: matrix.component == 'backend' && steps.backend-changes.outputs.changed > 0
+        run: |
+          cd cw_app
+          npm run test:unit -- --passWithNoTests --maxWorkers=2
+        env:
+          CI: true
+
+      - name: Run dashboard unit tests
+        if: matrix.component == 'dashboard' && steps.dashboard-changes.outputs.changed > 0
+        run: |
+          cd cw_dashboard
+          npm run test -- --testPathPattern=unit --passWithNoTests --maxWorkers=2
+        env:
+          CI: true
+
+  # Build verification
+  build-check:
+    runs-on: ubuntu-latest
+    name: Build Verification
+    needs: quick-checks
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            cw_app/package-lock.json
+            cw_dashboard/package-lock.json
+
+      - name: Check for backend changes
+        id: backend-changes
+        run: |
+          changes=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_app/' || echo 0)
+          echo "changed=$changes" >> $GITHUB_OUTPUT
+
+      - name: Check for dashboard changes
+        id: dashboard-changes
+        run: |
+          changes=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD | grep -c '^cw_dashboard/' || echo 0)
+          echo "changed=$changes" >> $GITHUB_OUTPUT
+
+      - name: Build backend (if changed)
+        if: steps.backend-changes.outputs.changed > 0
+        run: |
+          cd cw_app
+          npm ci --prefer-offline --no-audit
+          npm run build
+
+      - name: Build dashboard (if changed)
+        if: steps.dashboard-changes.outputs.changed > 0
+        run: |
+          cd cw_dashboard
+          npm ci --prefer-offline --no-audit
+          npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000
+          NEXT_PUBLIC_USERFRONT_WORKSPACE_ID: test
+
+  # Security check for PRs
+  security-check:
+    runs-on: ubuntu-latest
+    name: Security Check
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run npm audit (backend)
+        continue-on-error: true
+        run: |
+          cd cw_app
+          npm audit --audit-level high
+
+      - name: Run npm audit (dashboard)
+        continue-on-error: true
+        run: |
+          cd cw_dashboard
+          npm audit --audit-level high
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Simple regex check for potential secrets
+          if git diff ${{ github.event.pull_request.base.sha }} HEAD | grep -iE "(api_?key|secret|password|token|credential).*(=|:).*['\"][^'\"]{10,}"; then
+            echo "⚠️  Potential hardcoded secrets detected in PR diff"
+            echo "Please review the changes and ensure no sensitive data is committed"
+            # Don't fail the check, just warn
+          fi
+
+  # PR summary
+  pr-summary:
+    runs-on: ubuntu-latest
+    name: PR Summary
+    needs: [quick-checks, unit-tests, build-check, security-check]
+    if: always()
+    
+    steps:
+      - name: Create PR summary comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const needs = ${{ toJSON(needs) }};
+            
+            let summary = "## 🔍 PR Quality Check Summary\n\n";
+            summary += "| Check | Status |\n";
+            summary += "|-------|--------|\n";
+            
+            Object.entries(needs).forEach(([job, result]) => {
+              const status = result.result === 'success' ? '✅' : result.result === 'failure' ? '❌' : '⏭️';
+              const jobName = job.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              summary += `| ${jobName} | ${status} |\n`;
+            });
+            
+            summary += "\n### 📝 Next Steps\n";
+            
+            const failedJobs = Object.entries(needs).filter(([_, result]) => result.result === 'failure');
+            
+            if (failedJobs.length === 0) {
+              summary += "✅ All checks passed! This PR is ready for review.\n";
+            } else {
+              summary += "❌ Some checks failed. Please review and fix the following:\n\n";
+              failedJobs.forEach(([job, _]) => {
+                const jobName = job.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                summary += `- Fix issues in: **${jobName}**\n`;
+              });
+            }
+            
+            summary += "\n---\n";
+            summary += "*This comment is automatically generated by the PR quality check workflow*";
+            
+            // Find existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.data.find(
+              comment => comment.user.login === 'github-actions[bot]' && 
+                         comment.body.includes('PR Quality Check Summary')
+            );
+            
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: summary
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }

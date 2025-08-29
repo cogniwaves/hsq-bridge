@@ -1,0 +1,439 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  # Environment variables for testing
+  NODE_ENV: test
+  CI: true
+  POSTGRES_TEST_PASSWORD: test_password
+  DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15433/hs_bridge_test
+  REDIS_URL: redis://localhost:16380
+
+jobs:
+  # Code Quality Check
+  quality:
+    runs-on: ubuntu-latest
+    name: Code Quality
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            cw_app/package-lock.json
+            cw_dashboard/package-lock.json
+
+      - name: Install backend dependencies
+        run: |
+          cd cw_app
+          npm ci
+
+      - name: Install dashboard dependencies
+        run: |
+          cd cw_dashboard
+          npm ci
+
+      - name: Run backend linting
+        run: |
+          cd cw_app
+          npm run lint
+
+      - name: Run dashboard linting  
+        run: |
+          cd cw_dashboard
+          npm run lint
+
+      - name: Run dashboard type checking
+        run: |
+          cd cw_dashboard
+          npm run type-check
+
+  # Backend Testing
+  backend-tests:
+    runs-on: ubuntu-latest
+    name: Backend Tests
+    needs: quality
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: hs_bridge_test
+          POSTGRES_USER: hs_bridge_test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 15433:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 16380:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: cw_app/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd cw_app
+          npm ci
+
+      - name: Generate Prisma client
+        run: |
+          cd cw_app
+          npx prisma generate
+
+      - name: Run database migrations
+        run: |
+          cd cw_app
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15433/hs_bridge_test
+
+      - name: Run backend tests
+        run: |
+          cd cw_app
+          npm run test:ci
+        env:
+          CI: true
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15433/hs_bridge_test
+          REDIS_URL: redis://localhost:16380
+
+      - name: Upload backend coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./cw_app/coverage
+          flags: backend
+          name: backend-coverage
+
+      - name: Upload backend test results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Backend Tests
+          path: cw_app/coverage/junit.xml
+          reporter: jest-junit
+
+  # Dashboard Testing  
+  dashboard-tests:
+    runs-on: ubuntu-latest
+    name: Dashboard Tests
+    needs: quality
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: cw_dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd cw_dashboard
+          npm ci
+
+      - name: Run dashboard tests
+        run: |
+          cd cw_dashboard
+          npm run test:ci
+        env:
+          CI: true
+          NODE_ENV: test
+
+      - name: Upload dashboard coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: ./cw_dashboard/coverage
+          flags: dashboard
+          name: dashboard-coverage
+
+      - name: Upload dashboard test results
+        uses: dorny/test-reporter@v1
+        if: success() || failure()
+        with:
+          name: Dashboard Tests
+          path: cw_dashboard/coverage/junit.xml
+          reporter: jest-junit
+
+  # API Integration Tests
+  api-tests:
+    runs-on: ubuntu-latest
+    name: API Integration Tests
+    needs: [backend-tests]
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: hs_bridge_test
+          POSTGRES_USER: hs_bridge_test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 15432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 16379:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: cw_app/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd cw_app
+          npm ci
+
+      - name: Generate Prisma client
+        run: |
+          cd cw_app
+          npx prisma generate
+
+      - name: Run database migrations
+        run: |
+          cd cw_app
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15432/hs_bridge_test
+
+      - name: Start application
+        run: |
+          cd cw_app
+          npm run build
+          npm start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15432/hs_bridge_test
+          REDIS_URL: redis://localhost:16379
+          API_KEY_ADMIN: test_admin_key
+          API_KEY_READ_ONLY: test_read_key
+          PORT: 3000
+
+      - name: Run API tests
+        run: |
+          chmod +x scripts/test-api.sh
+          ./scripts/test-api.sh all --api-url http://localhost:3000
+
+  # Build and Test Docker Images
+  docker-build:
+    runs-on: ubuntu-latest
+    name: Docker Build Test
+    needs: [backend-tests, dashboard-tests]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./cw_app
+          target: production
+          push: false
+          tags: hsq-bridge/backend:test
+
+      - name: Build dashboard image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./cw_dashboard  
+          target: production
+          push: false
+          tags: hsq-bridge/dashboard:test
+
+      - name: Test Docker Compose
+        run: |
+          docker compose -f docker-compose.test.yml config --quiet
+
+  # Security Scanning
+  security:
+    runs-on: ubuntu-latest
+    name: Security Scan
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run npm audit (backend)
+        run: |
+          cd cw_app
+          npm audit --audit-level moderate || true
+
+      - name: Run npm audit (dashboard)
+        run: |
+          cd cw_dashboard
+          npm audit --audit-level moderate || true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Performance and Load Testing (only on main branch)
+  performance:
+    runs-on: ubuntu-latest
+    name: Performance Tests
+    needs: [api-tests]
+    if: github.ref == 'refs/heads/main'
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: hs_bridge_test
+          POSTGRES_USER: hs_bridge_test_user  
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 15432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 16379:6379
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: cw_app/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd cw_app
+          npm ci
+
+      - name: Generate Prisma client and run migrations
+        run: |
+          cd cw_app
+          npx prisma generate
+          npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15432/hs_bridge_test
+
+      - name: Start application
+        run: |
+          cd cw_app
+          npm run build
+          npm start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://hs_bridge_test_user:test_password@localhost:15432/hs_bridge_test
+          REDIS_URL: redis://localhost:16379
+          PORT: 3000
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run performance tests
+        run: |
+          chmod +x scripts/test-api.sh
+          ./scripts/test-api.sh performance --api-url http://localhost:3000
+
+  # Create Test Summary  
+  test-summary:
+    runs-on: ubuntu-latest
+    name: Test Summary
+    needs: [backend-tests, dashboard-tests, api-tests, docker-build, security]
+    if: always()
+    
+    steps:
+      - name: Create test summary
+        run: |
+          echo "## 🧪 Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Code Quality | ${{ needs.quality.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend Tests | ${{ needs.backend-tests.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard Tests | ${{ needs.dashboard-tests.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API Tests | ${{ needs.api-tests.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.docker-build.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Coverage Reports" >> $GITHUB_STEP_SUMMARY
+          echo "- Backend Coverage: Available in Codecov" >> $GITHUB_STEP_SUMMARY
+          echo "- Dashboard Coverage: Available in Codecov" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Useful Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [View Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Coverage Reports](https://codecov.io/gh/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
