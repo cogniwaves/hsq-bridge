@@ -299,6 +299,29 @@ export class QuickBooksClient {
   }
 
   /**
+   * Get company information from QuickBooks
+   */
+  async getCompanyInfo(): Promise<any> {
+    if (!this.config.realmId) {
+      throw new Error('QuickBooks realm ID not configured');
+    }
+
+    try {
+      const response = await this.client.get(
+        `/v3/company/${this.config.realmId}/companyinfo/1`
+      );
+
+      const companyInfo = response.data.CompanyInfo;
+      logger.info('Retrieved QuickBooks company info:', companyInfo?.CompanyName);
+      
+      return companyInfo;
+    } catch (error) {
+      logger.error('Failed to get QuickBooks company info:', error);
+      throw new Error(`Failed to get company info from QuickBooks: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Crée un article/service dans QuickBooks
    */
   async createItem(itemData: QuickBooksItem): Promise<{ id: string; item: any }> {
