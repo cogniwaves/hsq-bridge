@@ -370,6 +370,7 @@ describe('Navigation Performance', () => {
         renderCount++;
         return <SideNavigation config={global.testUtils.createMockNavigationConfig()} />;
       });
+      TestComponent.displayName = 'TestComponent';
 
       const { rerender } = render(<TestComponent />);
       expect(renderCount).toBe(1);

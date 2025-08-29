@@ -15,9 +15,9 @@ import {
   validateRequest,
   tenantCreationSchema,
   tenantUpdateSchema,
-  tenantSwitchSchema,
+  // tenantSwitchSchema,
   memberRoleUpdateSchema,
-  removeMemberSchema,
+  // removeMemberSchema,
   ValidationError
 } from '../utils/auth/validationSchemas';
 import { TenantRole } from '@prisma/client';

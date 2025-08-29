@@ -12,7 +12,7 @@ import { analysisRoutes } from './analysis';
 import { adminRoutes } from './admin';
 import { batchRoutes } from './batch';
 import { quickbooksRoutes } from './quickbooks';
-import { authRoutes } from './auth';
+// import { authRoutes } from './auth';
 import { tokenManagementRoutes } from './tokenManagement';
 // New multi-tenant authentication routes
 import { userAuthRoutes } from './userAuth';
@@ -23,14 +23,14 @@ import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../mid
 import { rateLimits } from '../middleware/rateLimiting';
 import { 
   addTenantContext, 
-  logTenantOperation, 
+  // logTenantOperation, 
   sanitizeTenantResponse 
 } from '../middleware/tenantAware';
 
 export const apiRoutes = Router();
 
 // Public endpoints (no auth required)
-apiRoutes.get('/', rateLimits.public, ((req, res) => {
+apiRoutes.get('/', rateLimits.public, ((_req, res) => {
   res.json({
     name: 'HubSpot-Stripe-QuickBooks Bridge API',
     version: '1.0.0',
@@ -129,7 +129,7 @@ apiRoutes.get('/', rateLimits.public, ((req, res) => {
   });
 }) as ApiHandler);
 
-apiRoutes.get('/health', rateLimits.public, ((req, res) => {
+apiRoutes.get('/health', rateLimits.public, ((_req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),

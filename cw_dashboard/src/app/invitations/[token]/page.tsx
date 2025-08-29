@@ -126,7 +126,7 @@ export default function AcceptInvitationPage() {
             </div>
             <div className="ml-3">
               <p className="text-sm font-medium text-green-800">
-                You've successfully joined {invitation?.tenant.name}
+                You&apos;ve successfully joined {invitation?.tenant.name}
               </p>
               <p className="mt-2 text-sm text-green-700">
                 Redirecting to dashboard...

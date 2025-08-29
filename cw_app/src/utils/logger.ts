@@ -13,7 +13,8 @@ try {
   }
 } catch (error) {
   // Fallback to console only if logs directory cannot be created
-  console.warn('Cannot create logs directory, falling back to console-only logging:', error.message);
+  // eslint-disable-next-line no-console
+  console.warn('Cannot create logs directory, falling back to console-only logging:', error instanceof Error ? error.message : String(error));
 }
 
 // Custom format for better readability
@@ -21,8 +22,15 @@ const customFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.metadata({ fillExcept: ['message', 'level', 'timestamp'] }),
-  winston.format.printf(({ level, message, timestamp, metadata, stack }) => {
-    let logMessage = `${timestamp} [${level.toUpperCase()}]: ${message}`;
+  winston.format.printf((info: winston.Logform.TransformableInfo) => {
+    const { level, message, timestamp, metadata, stack } = info as {
+      level: string;
+      message: string;
+      timestamp?: string;
+      metadata?: Record<string, unknown>;
+      stack?: string;
+    };
+    let logMessage = `${String(timestamp)} [${level.toUpperCase()}]: ${String(message)}`;
     
     // Add metadata if present
     if (metadata && Object.keys(metadata).length > 0) {
@@ -31,7 +39,7 @@ const customFormat = winston.format.combine(
     
     // Add stack trace for errors
     if (stack) {
-      logMessage += `\n${stack}`;
+      logMessage += `\n${String(stack)}`;
     }
     
     return logMessage;
@@ -42,19 +50,25 @@ const customFormat = winston.format.combine(
 const consoleFormat = winston.format.combine(
   winston.format.colorize(),
   winston.format.timestamp({ format: 'HH:mm:ss' }),
-  winston.format.printf(({ level, message, timestamp, stack }) => {
-    let logMessage = `${timestamp} ${level}: ${message}`;
-    if (stack) logMessage += `\n${stack}`;
+  winston.format.printf((info: winston.Logform.TransformableInfo) => {
+    const { level, message, timestamp, stack } = info as {
+      level: string;
+      message: string;
+      timestamp?: string;
+      stack?: string;
+    };
+    let logMessage = `${String(timestamp)} ${level}: ${String(message)}`;
+    if (stack) logMessage += `\n${String(stack)}`;
     return logMessage;
   })
 );
 
-// File rotation configuration
-const fileRotationOptions = {
-  maxSize: '20m',
-  maxFiles: '14d',
-  datePattern: 'YYYY-MM-DD'
-};
+// File rotation configuration (reserved for future use)
+// const fileRotationOptions = {
+//   maxSize: '20m',
+//   maxFiles: '14d',
+//   datePattern: 'YYYY-MM-DD'
+// };
 
 // Create transports array, with file transports only if logs directory exists
 const transports: winston.transport[] = [
@@ -104,7 +118,8 @@ try {
     );
   }
 } catch (error) {
-  console.warn('File logging disabled due to permission issues:', error.message);
+  // eslint-disable-next-line no-console
+  console.warn('File logging disabled due to permission issues:', error instanceof Error ? error.message : String(error));
 }
 
 export const logger = winston.createLogger({
@@ -163,7 +178,8 @@ if (process.env.NODE_ENV === 'production' && fs.existsSync(logsDir)) {
       )
     }));
   } catch (error) {
-    console.warn('Could not add production log files:', error.message);
+    // eslint-disable-next-line no-console
+    console.warn('Could not add production log files:', error instanceof Error ? error.message : String(error));
   }
 }
 
@@ -192,7 +208,7 @@ export class PerformanceTimer {
     logger.debug(`⏱️ Starting ${component}::${operation}`);
   }
 
-  end(metadata?: any): number {
+  end(metadata?: Record<string, unknown>): number {
     const duration = Date.now() - this.startTime;
     
     const logLevel = duration > 5000 ? 'warn' : duration > 1000 ? 'info' : 'debug';
@@ -214,7 +230,7 @@ export const auditLog = (
   action: string, 
   resource: string, 
   user: string | null = null, 
-  metadata?: any
+  metadata?: Record<string, unknown>
 ) => {
   logger.warn('📋 AUDIT', {
     action,
@@ -229,7 +245,7 @@ export const auditLog = (
 export const securityLog = (
   event: string, 
   severity: 'low' | 'medium' | 'high' | 'critical',
-  details?: any
+  details?: Record<string, unknown>
 ) => {
   const emoji = {
     low: '🔵',
@@ -250,7 +266,7 @@ export const businessLog = (
   event: string,
   entityType: 'invoice' | 'payment' | 'sync',
   entityId: string,
-  metadata?: any
+  metadata?: Record<string, unknown>
 ) => {
   logger.info(`💼 BUSINESS: ${event}`, {
     businessEvent: true,
@@ -268,7 +284,7 @@ export const logErrorWithContext = (
     component?: string;
     userId?: string;
     requestId?: string;
-    data?: any;
+    data?: unknown;
   }
 ) => {
   logger.error('❌ ERROR WITH CONTEXT', {

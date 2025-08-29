@@ -82,3 +82,35 @@ USER nodejs
 
 # Start application with ts-node for development
 CMD ["npx", "ts-node-dev", "--respawn", "--transpile-only", "src/index.ts"]
+
+# Testing stage
+FROM deps AS testing
+
+# Copy source code, tests, and prisma
+COPY --chown=nodejs:nodejs src ./src
+COPY --chown=nodejs:nodejs tests ./tests
+COPY --chown=nodejs:nodejs prisma ./prisma
+
+# Install additional testing dependencies (if any)
+RUN npm install --save-dev jest-junit @types/supertest
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Create directories for test artifacts
+RUN mkdir -p /app/logs /app/coverage /app/test-results && \
+    chown -R nodejs:nodejs /app
+
+# Switch to non-root user
+USER nodejs
+
+# Set test environment
+ENV NODE_ENV=test
+ENV CI=true
+
+# Health check for testing
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD node -e "console.log('Test container healthy')" || exit 1
+
+# Default command runs tests in CI mode
+CMD ["npm", "run", "test:ci"]

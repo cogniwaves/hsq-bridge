@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import { ApiHandler } from '../types/api';
 import { getHubSpotClient } from '../services/hubspotClient';
 import { getInvoiceExtractor } from '../services/invoiceExtractor';
 import { logger } from '../utils/logger';
@@ -8,7 +7,7 @@ import { HubSpotContact, HubSpotCompany } from '../types/hubspot';
 export const testRoutes = Router();
 
 // Test HubSpot connection endpoint (uses Invoices first, falls back to Deals)
-testRoutes.get('/hubspot', (async (req, res) => {
+testRoutes.get('/hubspot', async (_req, res) => {
   try {
     logger.info('Testing HubSpot connection...');
     
@@ -64,7 +63,7 @@ testRoutes.get('/hubspot', (async (req, res) => {
       }
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'HubSpot connection successful',
       data: {
@@ -97,7 +96,7 @@ testRoutes.get('/hubspot', (async (req, res) => {
       statusCode = 502;
     }
 
-    res.status(statusCode).json({
+    return res.status(statusCode).json({
       success: false,
       message: 'HubSpot connection test failed',
       error: errorMessage,
@@ -109,10 +108,10 @@ testRoutes.get('/hubspot', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Test comprehensive data extraction (single invoice)
-testRoutes.post('/extract-comprehensive', (async (req, res) => {
+testRoutes.post('/extract-comprehensive', async (_req, res) => {
   try {
     logger.info('Testing comprehensive data extraction...');
     
@@ -141,7 +140,7 @@ testRoutes.post('/extract-comprehensive', (async (req, res) => {
     // Test the comprehensive extraction method
     const result = await (extractor as any)['processHubSpotInvoice'](testInvoice, 'test-comprehensive');
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Comprehensive extraction test completed',
       data: {
@@ -162,17 +161,17 @@ testRoutes.post('/extract-comprehensive', (async (req, res) => {
   } catch (error) {
     logger.error('Comprehensive extraction test failed:', error);
     
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Comprehensive extraction test failed',
       error: (error as Error).message,
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Test normalized extraction on a few invoices
-testRoutes.post('/extract-normalized', (async (req, res) => {
+testRoutes.post('/extract-normalized', async (_req, res) => {
   try {
     logger.info('Testing normalized extraction on 5 invoices...');
     
@@ -218,7 +217,7 @@ testRoutes.post('/extract-normalized', (async (req, res) => {
     
     stats.processingTime = Date.now() - startTime;
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Normalized extraction test completed',
       data: {
@@ -232,17 +231,17 @@ testRoutes.post('/extract-normalized', (async (req, res) => {
   } catch (error) {
     logger.error('Normalized extraction test failed:', error);
     
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Normalized extraction test failed',
       error: (error as Error).message,
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Test line items extraction for a specific invoice
-testRoutes.get('/line-items/:invoiceId', (async (req, res) => {
+testRoutes.get('/line-items/:invoiceId', async (req, res) => {
   try {
     const invoiceId = req.params.invoiceId;
     logger.info(`Testing line items extraction for invoice ${invoiceId}...`);
@@ -278,7 +277,7 @@ testRoutes.get('/line-items/:invoiceId', (async (req, res) => {
       }
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Line items extraction test completed',
       data: {
@@ -307,11 +306,11 @@ testRoutes.get('/line-items/:invoiceId', (async (req, res) => {
   } catch (error) {
     logger.error('Line items test failed:', error);
     
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Line items test failed',
       error: (error as Error).message,
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});

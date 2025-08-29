@@ -149,7 +149,7 @@ export function UnauthenticatedLayout({ children, pathname }: UnauthenticatedLay
                 {pathname === '/auth/signin' ? (
                   <>
                     <p style={{ color: 'var(--color-text-secondary)' }}>
-                      Don't have an account?{' '}
+                      Don&apos;t have an account?{' '}
                       <Link
                         href="/auth/signup"
                         className="font-medium transition-colors hover:opacity-80"

@@ -3,6 +3,8 @@
  * Tests for cross-browser functionality and graceful degradation
  */
 
+/// <reference path="../../types/jest.d.ts" />
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -121,7 +123,7 @@ describe('Navigation Browser Compatibility', () => {
         responseText: JSON.stringify({ success: true }),
       };
 
-      global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock);
+      global.XMLHttpRequest = jest.fn().mockImplementation(() => xhrMock) as any;
       
       render(<SideNavigation config={testConfig} />);
       
@@ -271,6 +273,14 @@ describe('Navigation Browser Compatibility', () => {
             identifier: 0,
             clientX: 50,
             clientY: 100,
+            pageX: 50,
+            pageY: 100,
+            screenX: 50,
+            screenY: 100,
+            radiusX: 0,
+            radiusY: 0,
+            rotationAngle: 0,
+            force: 1,
             target: menuButton,
           } as Touch],
         });
@@ -334,7 +344,7 @@ describe('Navigation Browser Compatibility', () => {
       expect(navigation).toHaveClass('edge-legacy');
       
       // Edge-specific CSS fixes
-      const computedStyle = window.getComputedStyle(navigation);
+      const computedStyle = window.getComputedStyle(navigation) as any;
       expect(computedStyle.msGridColumn).toBeDefined();
     });
 
@@ -412,7 +422,7 @@ describe('Navigation Browser Compatibility', () => {
       const polyfillLoadSpy = jest.fn();
       
       // Mock polyfill loader
-      global.loadPolyfill = polyfillLoadSpy;
+      (global as any).loadPolyfill = polyfillLoadSpy;
       
       // Simulate missing features
       delete (window as any).fetch;
@@ -428,7 +438,7 @@ describe('Navigation Browser Compatibility', () => {
 
     it('should gracefully degrade when polyfills fail to load', async () => {
       // Mock polyfill loading failure
-      global.loadPolyfill = jest.fn().mockRejectedValue(new Error('Polyfill load failed'));
+      (global as any).loadPolyfill = jest.fn().mockRejectedValue(new Error('Polyfill load failed'));
       
       delete (window as any).fetch;
       

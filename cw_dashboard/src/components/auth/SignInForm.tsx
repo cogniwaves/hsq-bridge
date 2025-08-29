@@ -103,7 +103,7 @@ export function SignInForm() {
           className="font-medium transition-colors duration-200 hover:opacity-80"
           style={{ color: 'var(--color-primary)' }}
         >
-          Don't have an account? Sign up
+          Don&apos;t have an account? Sign up
         </Link>
       </div>
     </form>

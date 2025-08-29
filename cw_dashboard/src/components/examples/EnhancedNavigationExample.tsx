@@ -336,7 +336,7 @@ export function EnhancedNavigationExample() {
               margin: 0,
               paddingLeft: '20px'
             }}>
-              <li><strong>Click "Drawer Mode" button (top-right)</strong> to test collapsible sections!</li>
+              <li><strong>Click &quot;Drawer Mode&quot; button (top-right)</strong> to test collapsible sections!</li>
               <li>Hover over navigation items to see tooltips</li>
               <li>Click on badges to see interactions</li>
               <li>Use keyboard shortcuts: Alt+M, Alt+P, Ctrl+K</li>

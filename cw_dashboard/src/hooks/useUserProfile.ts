@@ -377,7 +377,8 @@ export function useUserProfile({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update profile');
     }
-  }, [profile, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Update preferences
   const updatePreferences = useCallback(async (updates: Partial<UserPreferences>) => {
@@ -396,7 +397,8 @@ export function useUserProfile({
         description: 'Updated preferences',
       });
     }
-  }, [profile, savePreferences, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, savePreferences, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Upload avatar
   const uploadAvatar = useCallback(async (file: File): Promise<string> => {
@@ -432,7 +434,8 @@ export function useUserProfile({
     } catch (err) {
       throw new Error(`Failed to upload avatar: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  }, [enableAvatarUpload, profile, avatarOptions, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enableAvatarUpload, profile, avatarOptions, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Remove avatar
   const removeAvatar = useCallback(async () => {
@@ -446,15 +449,18 @@ export function useUserProfile({
         description: 'Removed avatar',
       });
     }
-  }, [profile, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Generate initials avatar
   const generateInitialsAvatar = useCallback((): string => {
     if (!profile) return '';
     
-    const initials = getUserInitials();
+    // Inline the logic instead of calling getUserInitials to avoid circular dependency
+    const displayName = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.email;
+    const initials = generateInitials(displayName);
     return createInitialsAvatar(initials);
-  }, [profile]);
+  }, [profile])
 
   // Set user status
   const setStatus = useCallback(async (status: UserProfile['status']) => {
@@ -468,7 +474,8 @@ export function useUserProfile({
         description: `Changed status to ${status}`,
       });
     }
-  }, [profile, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Add activity
   const addActivity = useCallback((activity: Omit<ActivityItem, 'id' | 'timestamp'>) => {
@@ -519,7 +526,8 @@ export function useUserProfile({
         description: 'Reset preferences to defaults',
       });
     }
-  }, [profile, savePreferences, trackActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, savePreferences, trackActivity]); // addActivity is intentionally excluded to avoid circular dependency
 
   // Export user data
   const exportUserData = useCallback(() => {
@@ -550,9 +558,10 @@ export function useUserProfile({
 
   const getUserInitials = useCallback(() => {
     if (!profile) return '';
-    const displayName = getDisplayName();
+    // Inline the logic instead of calling getDisplayName to avoid circular dependency
+    const displayName = profile.name || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.email;
     return generateInitials(displayName);
-  }, [profile, getDisplayName]);
+  }, [profile])
 
   const getStatusProps = useCallback(() => {
     const status = profile?.status || 'offline';

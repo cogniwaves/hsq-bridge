@@ -438,7 +438,8 @@ export function useGestures(
       recognizer.destroy();
       gestureRecognizerRef.current = null;
     };
-  }, [ref.current, config]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handlers, config]); // ref is not included because mutable values like ref.current aren't valid dependencies
 
   React.useEffect(() => {
     if (gestureRecognizerRef.current) {
@@ -471,7 +472,7 @@ export const NAVIGATION_GESTURE_CONFIGS = {
   },
 } as const;
 
-export default {
+const gestureUtils = {
   GestureRecognizer,
   useGestures,
   validateTouchTarget,
@@ -480,3 +481,5 @@ export default {
   NAVIGATION_GESTURE_CONFIGS,
   DEFAULT_TOUCH_CONFIG,
 };
+
+export default gestureUtils;

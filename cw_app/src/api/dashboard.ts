@@ -1,11 +1,11 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../utils/errorHandler';
 import { prisma } from '../index';
 
 export const dashboardRoutes = Router();
 
 // Dashboard overview stats
-dashboardRoutes.get('/overview', asyncHandler(async (req, res) => {
+dashboardRoutes.get('/overview', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const [
     totalInvoices,
     totalPayments,

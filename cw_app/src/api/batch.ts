@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { IncrementalExtractionService } from '../services/incrementalExtraction';
@@ -17,7 +17,7 @@ const comprehensiveSync = new ComprehensiveIncrementalSync();
  * GET /api/batch/sync/status
  * Récupère l'état actuel de la synchronisation incrémentielle
  */
-batchRoutes.get('/sync/status', asyncHandler(async (req, res) => {
+batchRoutes.get('/sync/status', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   logger.info('Fetching batch sync status');
   
   try {

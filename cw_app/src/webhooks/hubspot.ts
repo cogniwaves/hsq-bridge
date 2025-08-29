@@ -25,7 +25,7 @@ hubspotWebhooks.post('/', webhookAuth, endpointValidators.webhookReceiver, async
           platform: 'HUBSPOT',
           eventType: event.subscriptionType,
           eventId: `${event.objectId}-${event.occurredAt}`,
-          payload: event as any
+          payload: event
         }
       });
 

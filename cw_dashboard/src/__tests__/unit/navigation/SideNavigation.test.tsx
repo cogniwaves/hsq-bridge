@@ -392,20 +392,17 @@ describe('SideNavigation', () => {
       // Spy on console.error to verify error handling
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
       
-      // Component that tries to use navigation context outside provider
+      // Component that uses navigation context outside provider
+      const { useNavigationContext } = require('../../../components/navigation/SideNavigation');
       const TestComponent = () => {
-        try {
-          const { useNavigationContext } = require('../../../components/navigation/SideNavigation');
-          useNavigationContext();
-          return <div>Should not render</div>;
-        } catch (error) {
-          return <div>Error handled</div>;
-        }
+        const context = useNavigationContext();
+        return <div>Context: {context ? 'Available' : 'Not Available'}</div>;
       };
       
-      render(<TestComponent />);
-      
-      expect(screen.getByText('Error handled')).toBeInTheDocument();
+      // Test rendering outside provider should throw an error
+      expect(() => {
+        render(<TestComponent />);
+      }).toThrow();
       
       consoleSpy.mockRestore();
     });

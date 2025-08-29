@@ -192,29 +192,7 @@ export function useBadges({
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoHideTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Setup auto-refresh
-  useEffect(() => {
-    if (!dataFetcher || refreshInterval <= 0) return;
-
-    const startAutoRefresh = () => {
-      refreshIntervalRef.current = setInterval(async () => {
-        try {
-          await refresh();
-        } catch (error) {
-          console.warn('Badge auto-refresh failed:', error);
-        }
-      }, refreshInterval);
-    };
-
-    startAutoRefresh();
-
-    return () => {
-      if (refreshIntervalRef.current) {
-        clearInterval(refreshIntervalRef.current);
-        refreshIntervalRef.current = null;
-      }
-    };
-  }, [dataFetcher, refreshInterval]);
+  // Note: Auto-refresh effect moved after refresh function definition
 
   // Cleanup auto-hide timeouts
   useEffect(() => {
@@ -223,6 +201,35 @@ export function useBadges({
       autoHideTimeoutsRef.current.clear();
     };
   }, []);
+
+  // Remove badge from an item (defined early for setupAutoHide)
+  const removeBadge = useCallback((itemId: string, badgeId: string) => {
+    setBadges(prev => {
+      const currentBadges = prev[itemId] || [];
+      const updatedBadges = currentBadges.filter(badge => badge.id !== badgeId);
+      
+      // Clear auto-hide timeout
+      const timeoutKey = `${itemId}_${badgeId}`;
+      const timeout = autoHideTimeoutsRef.current.get(timeoutKey);
+      if (timeout) {
+        clearTimeout(timeout);
+        autoHideTimeoutsRef.current.delete(timeoutKey);
+      }
+
+      // Announce change
+      if (announceChanges) {
+        const announcement = createBadgeAnnouncement(itemId, updatedBadges);
+        announceBadgeChange(announcement);
+      }
+
+      if (updatedBadges.length === 0) {
+        const { [itemId]: _, ...rest } = prev;
+        return rest;
+      }
+
+      return { ...prev, [itemId]: updatedBadges };
+    });
+  }, [announceChanges]);
 
   // Handle auto-hide badges
   const setupAutoHide = useCallback((itemId: string, badge: EnhancedBadge) => {
@@ -243,7 +250,7 @@ export function useBadges({
     }, badge.autoHide);
 
     autoHideTimeoutsRef.current.set(timeoutKey, timeout);
-  }, []);
+  }, [removeBadge]);
 
   // Get badges for specific item
   const getBadges = useCallback((itemId: string): EnhancedBadge[] => {
@@ -307,34 +314,6 @@ export function useBadges({
     });
   }, [setupAutoHide, announceChanges]);
 
-  // Remove badge from an item
-  const removeBadge = useCallback((itemId: string, badgeId: string) => {
-    setBadges(prev => {
-      const currentBadges = prev[itemId] || [];
-      const updatedBadges = currentBadges.filter(badge => badge.id !== badgeId);
-      
-      // Clear auto-hide timeout
-      const timeoutKey = `${itemId}_${badgeId}`;
-      const timeout = autoHideTimeoutsRef.current.get(timeoutKey);
-      if (timeout) {
-        clearTimeout(timeout);
-        autoHideTimeoutsRef.current.delete(timeoutKey);
-      }
-
-      // Announce change
-      if (announceChanges) {
-        const announcement = createBadgeAnnouncement(itemId, updatedBadges);
-        announceBadgeChange(announcement);
-      }
-
-      if (updatedBadges.length === 0) {
-        const { [itemId]: _, ...rest } = prev;
-        return rest;
-      }
-
-      return { ...prev, [itemId]: updatedBadges };
-    });
-  }, [announceChanges]);
 
   // Clear all badges for an item
   const clearItemBadges = useCallback((itemId: string) => {
@@ -410,6 +389,30 @@ export function useBadges({
       setIsLoading(false);
     }
   }, [dataFetcher, setupAutoHide]);
+
+  // Setup auto-refresh
+  useEffect(() => {
+    if (!dataFetcher || refreshInterval <= 0) return;
+
+    const startAutoRefresh = () => {
+      refreshIntervalRef.current = setInterval(async () => {
+        try {
+          await refresh();
+        } catch (error) {
+          console.warn('Badge auto-refresh failed:', error);
+        }
+      }, refreshInterval);
+    };
+
+    startAutoRefresh();
+
+    return () => {
+      if (refreshIntervalRef.current) {
+        clearInterval(refreshIntervalRef.current);
+        refreshIntervalRef.current = null;
+      }
+    };
+  }, [dataFetcher, refreshInterval, refresh]);
 
   // Get badge component props
   const getBadgeProps = useCallback((badge: EnhancedBadge, itemId: string) => {

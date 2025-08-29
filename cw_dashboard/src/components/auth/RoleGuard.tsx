@@ -41,7 +41,7 @@ export function RoleGuard({
               Access Restricted
             </h3>
             <div className="mt-2 text-sm text-yellow-700">
-              <p>You don't have permission to access this content.</p>
+              <p>You don&apos;t have permission to access this content.</p>
             </div>
           </div>
         </div>

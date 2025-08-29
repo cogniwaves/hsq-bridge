@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../utils/errorHandler';
 import { metricsCollector } from '../utils/monitoring';
 import { prisma } from '../index';
@@ -6,7 +6,7 @@ import { prisma } from '../index';
 export const metricsRoutes = Router();
 
 // Get application metrics
-metricsRoutes.get('/', asyncHandler(async (req, res) => {
+metricsRoutes.get('/', (req: Request, res: Response) => {
   const metrics = metricsCollector.getMetrics();
   
   res.json({
@@ -14,7 +14,7 @@ metricsRoutes.get('/', asyncHandler(async (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime()
   });
-}));
+});
 
 // Get request metrics
 metricsRoutes.get('/requests', asyncHandler(async (req, res) => {

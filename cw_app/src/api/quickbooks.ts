@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { QuickBooksTransferQueueService } from '../services/quickbooksTransferQueue';
@@ -14,7 +14,7 @@ export const quickbooksRoutes = Router();
  * GET /api/quickbooks/health
  * Check if QuickBooks integration is configured and available
  */
-quickbooksRoutes.get('/health', asyncHandler(async (req, res) => {
+quickbooksRoutes.get('/health', (req: Request, res: Response) => {
   logger.info('Checking QuickBooks integration health');
   
   try {
@@ -41,7 +41,7 @@ quickbooksRoutes.get('/health', asyncHandler(async (req, res) => {
       error instanceof Error ? error.message : 'Unknown configuration error'
     ));
   }
-}));
+});
 
 // Lazy initialization to avoid errors when QuickBooks credentials are not available
 let queueService: QuickBooksTransferQueueService | null = null;

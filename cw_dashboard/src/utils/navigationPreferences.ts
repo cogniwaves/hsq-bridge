@@ -483,7 +483,9 @@ export function useNavigationPreferences(userId?: string) {
   }, [manager]);
 
   const computedValues = React.useMemo(() => 
-    manager.getComputedValues(), [manager, preferences]
+    manager.getComputedValues(), 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [preferences] // Using preferences instead of manager to avoid re-computing on manager reference changes
   );
 
   return {
@@ -497,7 +499,7 @@ export function useNavigationPreferences(userId?: string) {
   };
 }
 
-export default {
+const navigationPreferencesUtils = {
   NavigationPreferencesManager,
   getPreferencesManager,
   useNavigationPreferences,
@@ -505,3 +507,5 @@ export default {
   STORAGE_KEY,
   STORAGE_VERSION,
 };
+
+export default navigationPreferencesUtils;

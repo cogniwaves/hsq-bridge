@@ -3,6 +3,8 @@
  * WCAG 2.1 AA compliance testing for navigation components
  */
 
+/// <reference path="../../types/jest.d.ts" />
+
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -243,7 +245,7 @@ describe('Navigation Accessibility', () => {
                          invoicesItem.getAttribute('aria-describedby');
         
         expect(ariaLabel).toContain('5');
-        expect(ariaLabel).toContain('unread') || expect(ariaLabel).toContain('notifications');
+        expect(ariaLabel).toMatch(/unread|notifications/);
       });
     });
 

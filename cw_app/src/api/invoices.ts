@@ -1,13 +1,37 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { getHubSpotClient } from '../services/hubspotClient';
 import { logger } from '../utils/logger';
 import { prisma } from '../index';
-import { ApiHandler } from '../types/api';
+import { asyncHandler } from '../utils/errorHandler';
+
+// Type definition for invoice with contact information
+interface InvoiceWithContacts {
+  id: string;
+  hubspotInvoiceId: string | null;
+  hubspotDealId: string | null;
+  totalAmount: number | string | null;
+  currency: string | null;
+  status: string | null;
+  clientEmail: string | null;
+  clientName: string | null;
+  dueDate: Date | string | null;
+  issueDate: Date | string | null;
+  description: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  hubspotCreatedAt: Date | null;
+  hubspotModifiedAt: Date | null;
+  contactFullName: string | null;
+  contactEmail: string | null;
+  contactFirstName: string | null;
+  contactLastName: string | null;
+  companyName: string | null;
+}
 
 export const invoiceRoutes = Router();
 
 // Get invoices that need QuickBooks sync
-invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
+invoiceRoutes.get('/queue/quickbooks', asyncHandler(async (req: Request, res: Response) => {
   try {
     logger.info('Fetching invoices that need QuickBooks synchronization...');
     
@@ -47,7 +71,7 @@ invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
       LIMIT ${limit}
     `;
 
-    const invoices = invoicesWithContacts as any[];
+    const invoices = invoicesWithContacts as InvoiceWithContacts[];
 
     const transformedInvoices = invoices.map(invoice => {
       // Determine client name: prioritize company name over contact name
@@ -56,39 +80,39 @@ invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
       let clientEmail = null;
       
       if (invoice.companyName) {
-        clientName = invoice.companyName;
+        clientName = String(invoice.companyName);
         // Contact becomes secondary info
         if (invoice.contactFullName) {
-          contactName = invoice.contactFullName;
+          contactName = String(invoice.contactFullName);
         } else if (invoice.contactFirstName || invoice.contactLastName) {
-          contactName = `${invoice.contactFirstName || ''} ${invoice.contactLastName || ''}`.trim();
+          contactName = `${String(invoice.contactFirstName || '')} ${String(invoice.contactLastName || '')}`.trim();
         }
-        clientEmail = invoice.contactEmail;
+        clientEmail = invoice.contactEmail ? String(invoice.contactEmail) : null;
       } else if (invoice.contactFullName) {
-        clientName = invoice.contactFullName;
-        clientEmail = invoice.contactEmail;
+        clientName = String(invoice.contactFullName);
+        clientEmail = invoice.contactEmail ? String(invoice.contactEmail) : null;
       } else if (invoice.contactFirstName || invoice.contactLastName) {
-        clientName = `${invoice.contactFirstName || ''} ${invoice.contactLastName || ''}`.trim();
-        clientEmail = invoice.contactEmail;
+        clientName = `${String(invoice.contactFirstName || '')} ${String(invoice.contactLastName || '')}`.trim();
+        clientEmail = invoice.contactEmail ? String(invoice.contactEmail) : null;
       }
       
       return {
-        id: invoice.id,
-        hubspotInvoiceId: invoice.hubspotInvoiceId,
-        hubspotDealId: invoice.hubspotDealId,
-        totalAmount: invoice.totalAmount ? parseFloat(invoice.totalAmount.toString()) : 0,
-        currency: invoice.currency,
-        status: invoice.status,
-        clientEmail: clientEmail || invoice.clientEmail,
+        id: String(invoice.id),
+        hubspotInvoiceId: invoice.hubspotInvoiceId ? String(invoice.hubspotInvoiceId) : null,
+        hubspotDealId: invoice.hubspotDealId ? String(invoice.hubspotDealId) : null,
+        totalAmount: invoice.totalAmount ? parseFloat(String(invoice.totalAmount)) : 0,
+        currency: invoice.currency ? String(invoice.currency) : null,
+        status: invoice.status ? String(invoice.status) : null,
+        clientEmail: clientEmail || (invoice.clientEmail ? String(invoice.clientEmail) : null),
         clientName: clientName,
         contactName: contactName, // Add contact name as separate field
-        dueDate: invoice.dueDate?.toISOString(),
-        issueDate: invoice.issueDate?.toISOString(),
-        description: invoice.description,
-        createdAt: invoice.createdAt.toISOString(),
-        updatedAt: invoice.updatedAt.toISOString(),
-        hubspotCreatedAt: invoice.hubspotCreatedAt?.toISOString(),
-        hubspotModifiedAt: invoice.hubspotModifiedAt?.toISOString(),
+        dueDate: invoice.dueDate ? (invoice.dueDate instanceof Date ? invoice.dueDate.toISOString() : String(invoice.dueDate)) : null,
+        issueDate: invoice.issueDate ? (invoice.issueDate instanceof Date ? invoice.issueDate.toISOString() : String(invoice.issueDate)) : null,
+        description: invoice.description ? String(invoice.description) : null,
+        createdAt: invoice.createdAt instanceof Date ? invoice.createdAt.toISOString() : String(invoice.createdAt),
+        updatedAt: invoice.updatedAt instanceof Date ? invoice.updatedAt.toISOString() : String(invoice.updatedAt),
+        hubspotCreatedAt: invoice.hubspotCreatedAt ? (invoice.hubspotCreatedAt instanceof Date ? invoice.hubspotCreatedAt.toISOString() : String(invoice.hubspotCreatedAt)) : null,
+        hubspotModifiedAt: invoice.hubspotModifiedAt ? (invoice.hubspotModifiedAt instanceof Date ? invoice.hubspotModifiedAt.toISOString() : String(invoice.hubspotModifiedAt)) : null,
         quickbooksInvoiceId: null // Explicitly null to indicate needs sync
       };
     });
@@ -115,25 +139,38 @@ invoiceRoutes.get('/queue/quickbooks', async (req, res, next) => {
       timestamp: new Date().toISOString()
     });
   }
-});
+}));
 
 // Get comprehensive sync status combining invoice queue and transfer queue
-invoiceRoutes.get('/sync-status/comprehensive', async (req, res, next) => {
+invoiceRoutes.get('/sync-status/comprehensive', asyncHandler(async (req: Request, res: Response) => {
   try {
     logger.info('Fetching comprehensive sync status...');
     
     // Get basic invoice sync status (invoices without QuickBooks IDs)
-    const invoicesNeedingSync = await prisma.$queryRaw`
+    const invoicesNeedingSync = await prisma.$queryRaw<[{count: bigint | number}]>`
       SELECT COUNT(*) as count
       FROM invoice_mapping 
       WHERE quickbooks_invoice_id IS NULL 
         AND status IN ('SENT', 'PAID', 'PARTIALLY_PAID')
-    ` as any[];
+    `;
 
     const invoicesWithoutQbIds = Number(invoicesNeedingSync[0]?.count || 0);
 
     // Get transfer queue status
-    const transferQueueStats = await prisma.$queryRaw`
+    interface QueueStats {
+      total: bigint | number;
+      pending_review: bigint | number;
+      approved: bigint | number;
+      rejected: bigint | number;
+      transferred: bigint | number;
+      failed: bigint | number;
+      invoices: bigint | number;
+      line_items: bigint | number;
+      contacts: bigint | number;
+      companies: bigint | number;
+    }
+
+    const transferQueueStats = await prisma.$queryRaw<QueueStats[]>`
       SELECT 
         COUNT(*) as total,
         COUNT(CASE WHEN status = 'PENDING_REVIEW' THEN 1 END) as pending_review,
@@ -146,9 +183,9 @@ invoiceRoutes.get('/sync-status/comprehensive', async (req, res, next) => {
         COUNT(CASE WHEN entity_type = 'CONTACT' THEN 1 END) as contacts,
         COUNT(CASE WHEN entity_type = 'COMPANY' THEN 1 END) as companies
       FROM quickbooks_transfer_queue
-    ` as any[];
+    `;
 
-    const queueStats = transferQueueStats[0] || {};
+    const queueStats = transferQueueStats[0] || {} as QueueStats;
     const totalQueueItems = Number(queueStats.total || 0);
     const pendingReview = Number(queueStats.pending_review || 0);
 
@@ -201,10 +238,10 @@ invoiceRoutes.get('/sync-status/comprehensive', async (req, res, next) => {
     logger.error('Error fetching comprehensive sync status:', error);
     next(error);
   }
-});
+}));
 
 // Sync individual invoice to QuickBooks
-invoiceRoutes.post('/:id/sync', async (req, res, next) => {
+invoiceRoutes.post('/:id/sync', async (req, res, _next) => {
   const invoiceId = req.params.id;
   
   try {
@@ -257,7 +294,7 @@ invoiceRoutes.post('/:id/sync', async (req, res, next) => {
       LEFT JOIN companies comp ON ia2.company_id = comp.id
       WHERE im.id = ${invoiceId}
       LIMIT 1
-    ` as any[];
+    `;
 
     const invoiceData = detailedInvoice[0];
     if (!invoiceData) {
@@ -314,7 +351,7 @@ invoiceRoutes.post('/:id/sync', async (req, res, next) => {
         FROM line_items li
         WHERE li.invoice_id = ${invoiceId}
         ORDER BY li.created_at ASC
-      ` as any[];
+      `;
 
       // Function to find appropriate tax code based on rate
       const findTaxCodeForRate = (taxRate: number, taxLabel: string) => {
@@ -510,7 +547,7 @@ invoiceRoutes.post('/:id/sync', async (req, res, next) => {
 });
 
 // Get detailed invoice information
-invoiceRoutes.get('/:id/details', async (req, res, next) => {
+invoiceRoutes.get('/:id/details', async (req, res, _next) => {
   try {
     const invoiceId = req.params.id;
     logger.info(`Fetching detailed information for invoice ${invoiceId}`);
@@ -796,7 +833,7 @@ invoiceRoutes.get('/', async (req, res, next) => {
 });
 
 // Get all invoices from HubSpot (live data) - separated function
-const getInvoicesFromHubSpot: ApiHandler = async (req, res, next) => {
+const getInvoicesFromHubSpot: ApiHandler = async (req, res, _next) => {
   try {
     logger.info('Fetching invoices from HubSpot...');
     

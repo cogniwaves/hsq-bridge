@@ -351,19 +351,19 @@ export class QuickBooksTransferQueueService {
       if (byEntityType[entityType]) {
         switch (status) {
           case 'PENDING_REVIEW':
-            byEntityType[entityType]!.pending = countValue;
+            byEntityType[entityType].pending = countValue;
             break;
           case 'APPROVED':
-            byEntityType[entityType]!.approved = countValue;
+            byEntityType[entityType].approved = countValue;
             break;
           case 'REJECTED':
-            byEntityType[entityType]!.rejected = countValue;
+            byEntityType[entityType].rejected = countValue;
             break;
           case 'TRANSFERRED':
-            byEntityType[entityType]!.transferred = countValue;
+            byEntityType[entityType].transferred = countValue;
             break;
           case 'FAILED':
-            byEntityType[entityType]!.failed = countValue;
+            byEntityType[entityType].failed = countValue;
             break;
         }
       }

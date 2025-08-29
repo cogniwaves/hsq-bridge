@@ -163,6 +163,12 @@ export const rateLimits = {
   write: createRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     maxRequests: 100          // 100 requêtes par 15 min
+  }),
+  
+  // Endpoints d'authentification (modérément restrictifs)
+  auth: createRateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    maxRequests: 20           // 20 requêtes par 15 min (prevent brute force)
   })
 };
 

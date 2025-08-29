@@ -24,7 +24,7 @@ quickbooksWebhooks.post('/', asyncHandler(async (req, res) => {
             platform: 'QUICKBOOKS',
             eventType: `${entity.name}.${entity.operation}`,
             eventId: `${entity.name}-${entity.id}-${entity.lastUpdated}`,
-            payload: entity as any
+            payload: entity
           }
         });
 

@@ -215,7 +215,7 @@ export default function SelectTenantPage() {
             <div className="ml-3">
               <h3 className="text-sm font-medium text-blue-800">Need help?</h3>
               <div className="mt-2 text-sm text-blue-700">
-                <p>If you're expecting to be part of an organization but don't see it here, contact your organization administrator to request an invitation.</p>
+                <p>If you&apos;re expecting to be part of an organization but don&apos;t see it here, contact your organization administrator to request an invitation.</p>
               </div>
             </div>
           </div>

@@ -3,6 +3,7 @@
  * Global mocks for external dependencies and APIs
  */
 
+import React from 'react';
 import { jest } from '@jest/globals';
 
 // Mock Next.js modules
@@ -79,11 +80,11 @@ jest.mock('../../contexts/UserfrontAuthContext', () => ({
 
 // Mock Heroicons
 jest.mock('@heroicons/react/24/outline', () => {
-  const MockIcon = ({ className, ...props }: any) => (
-    <svg className={className} data-testid="mock-icon" {...props}>
-      <path />
-    </svg>
-  );
+  const MockIcon = ({ className, ...props }: any) => 
+    React.createElement('svg', 
+      { className, 'data-testid': 'mock-icon', ...props },
+      React.createElement('path')
+    );
 
   return {
     HomeIcon: MockIcon,
@@ -105,11 +106,11 @@ jest.mock('@heroicons/react/24/outline', () => {
 });
 
 jest.mock('@heroicons/react/24/solid', () => {
-  const MockIcon = ({ className, ...props }: any) => (
-    <svg className={className} data-testid="mock-icon-solid" {...props}>
-      <path />
-    </svg>
-  );
+  const MockIcon = ({ className, ...props }: any) => 
+    React.createElement('svg', 
+      { className, 'data-testid': 'mock-icon-solid', ...props },
+      React.createElement('path')
+    );
 
   return {
     HomeIcon: MockIcon,
@@ -174,16 +175,16 @@ jest.mock('react-hot-toast', () => ({
 
 // Mock Recharts for analytics
 jest.mock('recharts', () => ({
-  LineChart: ({ children }: { children: React.ReactNode }) => <div data-testid="line-chart">{children}</div>,
-  Line: () => <div data-testid="line" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  Legend: () => <div data-testid="legend" />,
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="responsive-container">{children}</div>
-  ),
+  LineChart: ({ children }: { children: React.ReactNode }) => 
+    React.createElement('div', { 'data-testid': 'line-chart' }, children),
+  Line: () => React.createElement('div', { 'data-testid': 'line' }),
+  XAxis: () => React.createElement('div', { 'data-testid': 'x-axis' }),
+  YAxis: () => React.createElement('div', { 'data-testid': 'y-axis' }),
+  CartesianGrid: () => React.createElement('div', { 'data-testid': 'cartesian-grid' }),
+  Tooltip: () => React.createElement('div', { 'data-testid': 'tooltip' }),
+  Legend: () => React.createElement('div', { 'data-testid': 'legend' }),
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => 
+    React.createElement('div', { 'data-testid': 'responsive-container' }, children),
 }));
 
 // Mock date-fns
@@ -322,13 +323,27 @@ global.performance = {
 
 // Export mock factories for use in tests
 export const mockFactories = {
-  createMockResponse: (data: any, options: Partial<Response> = {}) => ({
-    ok: true,
-    status: 200,
-    json: () => Promise.resolve(data),
-    text: () => Promise.resolve(JSON.stringify(data)),
-    ...options,
-  }),
+  createMockResponse: (data: any = {}, options: Partial<Response> = {}): Response => {
+    const response = {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      headers: new Headers(),
+      redirected: false,
+      type: 'basic' as ResponseType,
+      url: '',
+      clone: () => response as Response,
+      body: null,
+      bodyUsed: false,
+      arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+      blob: () => Promise.resolve(new Blob()),
+      formData: () => Promise.resolve(new FormData()),
+      json: () => Promise.resolve(data),
+      text: () => Promise.resolve(JSON.stringify(data)),
+      ...options,
+    };
+    return response as Response;
+  },
 
   createMockWebSocket: () => new MockWebSocket('ws://localhost:3000/ws'),
 
@@ -354,6 +369,85 @@ export const mockFactories = {
       changedTouches: mockTouches as Touch[],
       targetTouches: mockTouches as Touch[],
     });
+  },
+
+  createMockPointerEvent: (type: string, options: PointerEventInit = {}) => {
+    return new PointerEvent(type, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      ...options,
+    });
+  },
+
+  createMockIntersectionObserverEntry: (options: Partial<IntersectionObserverEntry> = {}): IntersectionObserverEntry => {
+    const defaultRect: DOMRectReadOnly = {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      toJSON: () => ({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      }),
+    };
+
+    return {
+      boundingClientRect: defaultRect,
+      intersectionRatio: 0,
+      intersectionRect: defaultRect,
+      isIntersecting: false,
+      rootBounds: null,
+      target: document.createElement('div'),
+      time: 0,
+      ...options,
+    } as IntersectionObserverEntry;
+  },
+
+  createMockResizeObserverEntry: (options: Partial<ResizeObserverEntry> = {}): ResizeObserverEntry => {
+    const defaultRect: DOMRectReadOnly = {
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      toJSON: () => ({
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      }),
+    };
+
+    const defaultSize: ResizeObserverSize = {
+      inlineSize: 0,
+      blockSize: 0,
+    };
+
+    return {
+      target: document.createElement('div'),
+      contentRect: defaultRect,
+      borderBoxSize: [defaultSize],
+      contentBoxSize: [defaultSize],
+      ...options,
+    } as ResizeObserverEntry;
   },
 
   resetAllMocks: () => {

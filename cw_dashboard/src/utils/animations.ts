@@ -421,7 +421,7 @@ export const generateKeyframesCSS = (): string => {
   `;
 };
 
-export default {
+const animationUtils = {
   ANIMATION_DURATIONS,
   EASING_FUNCTIONS,
   ANIMATION_PRESETS,
@@ -440,3 +440,5 @@ export default {
   getOptimalAnimationDuration,
   generateKeyframesCSS,
 };
+
+export default animationUtils;

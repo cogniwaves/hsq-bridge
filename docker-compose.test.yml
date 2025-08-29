@@ -1,0 +1,152 @@
+# Docker Compose for Testing Environment
+# Extended configuration with dedicated test services
+
+services:
+  # Test Database - Isolated from main database
+  cw_hsq_postgres_test:
+    image: postgres:15-alpine
+    container_name: cw_hsq_postgres_test
+    environment:
+      POSTGRES_DB: hs_bridge_test
+      POSTGRES_USER: hs_bridge_test_user
+      POSTGRES_PASSWORD: ${POSTGRES_TEST_PASSWORD:-test_password}
+    volumes:
+      - ./docker/postgres/test-init.sql:/docker-entrypoint-initdb.d/01-test-init.sql
+    ports:
+      - "15433:5432"
+    networks:
+      - cw_hsq_test_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hs_bridge_test_user -d hs_bridge_test"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data:noexec,nosuid,size=512m
+
+  # Test Redis - Isolated from main Redis
+  cw_hsq_redis_test:
+    image: redis:7-alpine
+    container_name: cw_hsq_redis_test
+    ports:
+      - "16380:6379"
+    networks:
+      - cw_hsq_test_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+    tmpfs:
+      - /data:noexec,nosuid,size=128m
+
+  # Backend Testing Service
+  cw_hsq_app_test:
+    build:
+      context: ./cw_app
+      dockerfile: Dockerfile
+      target: testing
+    container_name: cw_hsq_app_test
+    environment:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://hs_bridge_test_user:${POSTGRES_TEST_PASSWORD:-test_password}@cw_hsq_postgres_test:5432/hs_bridge_test
+      REDIS_URL: redis://cw_hsq_redis_test:6379
+      REDIS_HOST: cw_hsq_redis_test
+      REDIS_PORT: 6379
+      # Test-specific environment variables
+      JWT_SECRET: test_jwt_secret
+      API_KEY_ADMIN: test_admin_key
+      API_KEY_READ_ONLY: test_read_key
+      API_KEY_WEBHOOK: test_webhook_key
+      WEBHOOK_SECRET: test_webhook_secret
+      # Disable external API calls in tests
+      HUBSPOT_API_KEY: test_hubspot_key
+      STRIPE_SECRET_KEY: test_stripe_key
+      QUICKBOOKS_CLIENT_ID: test_qb_client_id
+      QUICKBOOKS_CLIENT_SECRET: test_qb_client_secret
+    depends_on:
+      cw_hsq_postgres_test:
+        condition: service_healthy
+      cw_hsq_redis_test:
+        condition: service_healthy
+    volumes:
+      - ./cw_app:/app
+      - /app/node_modules
+      - cw_hsq_test_coverage:/app/coverage
+    networks:
+      - cw_hsq_test_network
+    command: ["npm", "run", "test:watch"]
+
+  # Dashboard Testing Service
+  cw_hsq_dashboard_test:
+    build:
+      context: ./cw_dashboard
+      dockerfile: Dockerfile
+      target: testing
+    container_name: cw_hsq_dashboard_test
+    environment:
+      NODE_ENV: test
+      NEXT_PUBLIC_API_URL: http://cw_hsq_app_test:3000
+      NEXT_PUBLIC_USERFRONT_WORKSPACE_ID: test_workspace
+      # Testing specific vars
+      JEST_JUNIT_OUTPUT_DIR: ./coverage
+    volumes:
+      - ./cw_dashboard:/app
+      - /app/node_modules
+      - /app/.next
+      - cw_hsq_test_coverage:/app/coverage
+    networks:
+      - cw_hsq_test_network
+    command: ["npm", "run", "test:watch"]
+
+  # Test Coverage Reporter Service
+  cw_hsq_test_reporter:
+    build:
+      context: ./docker/test-reporter
+      dockerfile: Dockerfile
+    container_name: cw_hsq_test_reporter
+    environment:
+      COVERAGE_THRESHOLD: 70
+    volumes:
+      - cw_hsq_test_coverage:/coverage
+      - ./test-reports:/reports
+    networks:
+      - cw_hsq_test_network
+    depends_on:
+      - cw_hsq_app_test
+      - cw_hsq_dashboard_test
+    profiles:
+      - reporting
+
+  # End-to-End Testing Service (with Playwright)
+  cw_hsq_e2e_test:
+    build:
+      context: ./e2e-tests
+      dockerfile: Dockerfile
+    container_name: cw_hsq_e2e_test
+    environment:
+      BASE_URL: http://cw_hsq_dashboard:3000
+      API_URL: http://cw_hsq_app:3000
+    volumes:
+      - ./e2e-tests:/app
+      - cw_hsq_e2e_results:/app/test-results
+    networks:
+      - cw_hsq_network
+      - cw_hsq_test_network
+    profiles:
+      - e2e
+    depends_on:
+      - cw_hsq_app
+      - cw_hsq_dashboard
+
+volumes:
+  cw_hsq_test_coverage:
+    driver: local
+  cw_hsq_e2e_results:
+    driver: local
+
+networks:
+  cw_hsq_test_network:
+    driver: bridge
+  cw_hsq_network:
+    external: true

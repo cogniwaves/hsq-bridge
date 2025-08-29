@@ -1,7 +1,7 @@
 import request from 'supertest';
 import express from 'express';
 import { apiRoutes } from '../../src/api';
-import { createTestInvoice, createTestPayment, testPrisma } from '../setup';
+import { createTestInvoice, createTestPayment } from '../setup';
 
 // Create test app
 const app = express();

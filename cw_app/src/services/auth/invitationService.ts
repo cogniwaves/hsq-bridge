@@ -41,6 +41,26 @@ export interface AcceptResult {
  */
 export class InvitationService {
   /**
+   * Create invitation (wrapper for sendInvitation)
+   */
+  async createInvitation(params: {
+    tenantId: string;
+    email: string;
+    role: TenantRole;
+    message?: string;
+    sendEmail?: boolean;
+    invitedBy: string;
+  }): Promise<TenantInvitation & { tenant: Tenant; invitedBy: User }> {
+    const result = await this.sendInvitation(params.tenantId, params.invitedBy, {
+      email: params.email,
+      role: params.role,
+      message: params.message,
+      sendEmail: params.sendEmail,
+    });
+    return result.invitation;
+  }
+
+  /**
    * Send invitation to join a tenant
    */
   async sendInvitation(
@@ -308,10 +328,16 @@ export class InvitationService {
   /**
    * Reject an invitation
    */
-  async rejectInvitation(token: string): Promise<void> {
+  async rejectInvitation(
+    token: string, 
+    metadata?: { ip?: string; userAgent?: string }
+  ): Promise<TenantInvitation & { tenant: Tenant }> {
     try {
       const invitation = await prisma.tenantInvitation.findUnique({
         where: { invitationToken: token },
+        include: {
+          tenant: true,
+        },
       });
 
       if (!invitation) {
@@ -322,17 +348,31 @@ export class InvitationService {
         throw createError(`Invitation has already been ${invitation.status.toLowerCase()}`, 400);
       }
 
-      await prisma.tenantInvitation.update({
+      const updatedInvitation = await prisma.tenantInvitation.update({
         where: { id: invitation.id },
         data: {
           status: InvitationStatus.REJECTED,
           rejectedAt: new Date(),
         },
+        include: {
+          tenant: true,
+        },
       });
 
-      logger.info('Invitation rejected', { invitationId: invitation.id });
+      logger.info('Invitation rejected', { 
+        invitationId: invitation.id,
+        tenantId: invitation.tenantId,
+        email: invitation.email,
+        metadata,
+      });
+
+      return updatedInvitation;
     } catch (error) {
-      logger.error('Failed to reject invitation', { error: error.message, token });
+      logger.error('Failed to reject invitation', { 
+        error: error.message, 
+        token: token?.substring(0, 10) + '...', // Don't log full token
+        metadata,
+      });
       throw error;
     }
   }
@@ -340,8 +380,13 @@ export class InvitationService {
   /**
    * Resend an invitation
    */
-  async resendInvitation(invitationId: string, requesterId: string): Promise<InvitationResult> {
+  async resendInvitation(
+    invitationId: string, 
+    options: { tenantId: string; userId: string }
+  ): Promise<TenantInvitation> {
     try {
+      const { tenantId, userId: requesterId } = options;
+
       const invitation = await prisma.tenantInvitation.findUnique({
         where: { id: invitationId },
         include: {
@@ -350,6 +395,11 @@ export class InvitationService {
       });
 
       if (!invitation) {
+        throw createError('Invitation not found', 404);
+      }
+
+      // Verify invitation belongs to the specified tenant
+      if (invitation.tenantId !== tenantId) {
         throw createError('Invitation not found', 404);
       }
 
@@ -392,22 +442,27 @@ export class InvitationService {
         data: {
           invitationToken: newToken,
           expiresAt: new Date(Date.now() + INVITATION_EXPIRES_DAYS * 24 * 60 * 60 * 1000),
+          updatedAt: new Date(),
         },
       });
 
-      const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-      const invitationUrl = `${baseUrl}/accept-invitation?token=${newToken}`;
-
       // TODO: Send invitation email
+      // const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      // const invitationUrl = `${baseUrl}/accept-invitation?token=${newToken}`;
       // await emailService.sendInvitationEmail(...)
 
-      logger.info('Invitation resent', { invitationId });
+      logger.info('Invitation resent', { 
+        invitationId,
+        tenantId,
+        requesterId,
+      });
 
-      return { invitation: updatedInvitation, invitationUrl };
+      return updatedInvitation;
     } catch (error) {
       logger.error('Failed to resend invitation', {
         error: error.message,
         invitationId,
+        options,
       });
       throw error;
     }
@@ -416,13 +471,23 @@ export class InvitationService {
   /**
    * Revoke a pending invitation
    */
-  async revokeInvitation(invitationId: string, requesterId: string): Promise<void> {
+  async revokeInvitation(
+    invitationId: string, 
+    options: { tenantId: string; userId: string }
+  ): Promise<TenantInvitation> {
     try {
+      const { tenantId, userId: requesterId } = options;
+
       const invitation = await prisma.tenantInvitation.findUnique({
         where: { id: invitationId },
       });
 
       if (!invitation) {
+        throw createError('Invitation not found', 404);
+      }
+
+      // Verify invitation belongs to the specified tenant
+      if (invitation.tenantId !== tenantId) {
         throw createError('Invitation not found', 404);
       }
 
@@ -451,48 +516,76 @@ export class InvitationService {
         throw createError('Can only revoke pending invitations', 400);
       }
 
-      await prisma.tenantInvitation.delete({
+      // Update status instead of deleting (better audit trail)
+      const revokedInvitation = await prisma.tenantInvitation.update({
         where: { id: invitationId },
+        data: {
+          status: InvitationStatus.EXPIRED, // Using EXPIRED as revoked status
+          updatedAt: new Date(),
+        },
       });
 
-      logger.info('Invitation revoked', { invitationId });
+      logger.info('Invitation revoked', { 
+        invitationId,
+        tenantId,
+        requesterId,
+      });
+
+      return revokedInvitation;
     } catch (error) {
       logger.error('Failed to revoke invitation', {
         error: error.message,
         invitationId,
+        options,
       });
       throw error;
     }
   }
 
   /**
-   * Get pending invitations for a tenant
+   * Get pending invitations for a tenant with pagination and filtering
    */
   async getTenantInvitations(
     tenantId: string,
-    requesterId: string,
-    status?: InvitationStatus
-  ): Promise<TenantInvitation[]> {
+    options: {
+      page?: number;
+      limit?: number;
+      status?: InvitationStatus;
+      role?: TenantRole;
+      search?: string;
+    }
+  ): Promise<{
+    invitations: (TenantInvitation & { invitedBy: User; acceptedBy?: User | null })[];
+    total: number;
+  }> {
     try {
-      // Check permission
-      const requesterMembership = await prisma.tenantMembership.findUnique({
-        where: {
-          userId_tenantId: {
-            userId: requesterId,
-            tenantId,
-          },
-        },
-      });
+      const { page = 1, limit = 20, status, role, search } = options;
+      const skip = (page - 1) * limit;
 
-      if (!requesterMembership) {
-        throw createError('You are not a member of this tenant', 403);
+      // Build where clause
+      const where: any = { tenantId };
+      
+      if (status) {
+        where.status = status;
+      }
+      
+      if (role) {
+        where.role = role;
+      }
+      
+      if (search) {
+        where.email = {
+          contains: search,
+          mode: 'insensitive',
+        };
       }
 
+      // Get total count
+      const total = await prisma.tenantInvitation.count({ where });
+
+      // Get invitations with pagination
       const invitations = await prisma.tenantInvitation.findMany({
-        where: {
-          tenantId,
-          status: status || InvitationStatus.PENDING,
-        },
+        where,
         include: {
           invitedBy: {
             select: {
@@ -502,17 +595,28 @@ export class InvitationService {
               lastName: true,
             },
           },
+          acceptedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
         orderBy: {
-          invitedAt: 'desc',
+          createdAt: 'desc',
         },
+        skip,
+        take: limit,
       });
 
-      return invitations;
+      return { invitations, total };
     } catch (error) {
       logger.error('Failed to get tenant invitations', {
         error: error.message,
         tenantId,
+        options,
       });
       throw error;
     }
@@ -718,6 +822,88 @@ export class InvitationService {
         tenantId,
         userId,
         newRole,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get invitations for a user by email
+   */
+  async getUserInvitations(email: string, status?: InvitationStatus): Promise<(TenantInvitation & { tenant: Tenant; invitedBy: User })[]> {
+    try {
+      const invitations = await prisma.tenantInvitation.findMany({
+        where: {
+          email,
+          status: status || undefined,
+        },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              description: true,
+            },
+          },
+          invitedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return invitations;
+    } catch (error) {
+      logger.error('Failed to get user invitations', {
+        error: error.message,
+        email,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get invitation by token (public method for invitation preview)
+   */
+  async getInvitationByToken(token: string): Promise<(TenantInvitation & { tenant: Tenant; invitedBy: User }) | null> {
+    try {
+      const invitation = await prisma.tenantInvitation.findUnique({
+        where: { invitationToken: token },
+        include: {
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              description: true,
+            },
+          },
+          invitedBy: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      });
+
+      return invitation;
+    } catch (error) {
+      logger.error('Failed to get invitation by token', {
+        error: error.message,
+        token: token?.substring(0, 10) + '...',
       });
       throw error;
     }

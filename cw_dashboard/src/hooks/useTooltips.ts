@@ -254,7 +254,7 @@ export function useTooltips({
       document.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
     };
-  }, [tooltipState.isVisible, tooltipState.targetElement]);
+  }, [tooltipState.isVisible, tooltipState.targetElement, hideTooltip]);
 
   // Keyboard support
   useEffect(() => {

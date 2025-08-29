@@ -29,7 +29,7 @@ export default function UnauthorizedPage() {
           
           <p className="mt-2 text-base"
              style={{ color: 'var(--color-text-secondary)' }}>
-            You don't have permission to access this resource.
+            You don&apos;t have permission to access this resource.
           </p>
           
           <div className="mt-8 space-y-3">

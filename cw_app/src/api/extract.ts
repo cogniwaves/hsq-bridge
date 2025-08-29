@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 export const extractRoutes = Router();
 
 // HubSpot invoice extraction endpoint (legacy)
-extractRoutes.post('/hubspot-invoices', (async (req, res) => {
+extractRoutes.post('/hubspot-invoices', async (req, res) => {
   try {
     logger.info('Starting HubSpot invoice extraction...');
     
@@ -36,10 +36,10 @@ extractRoutes.post('/hubspot-invoices', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Normalized HubSpot invoice extraction endpoint 
-extractRoutes.post('/hubspot-invoices-normalized', (async (req, res) => {
+extractRoutes.post('/hubspot-invoices-normalized', async (req, res) => {
   try {
     logger.info('Starting normalized HubSpot invoice extraction...');
     
@@ -70,10 +70,10 @@ extractRoutes.post('/hubspot-invoices-normalized', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Enhanced extraction on ALL invoices with line items and tax support
-extractRoutes.post('/hubspot-invoices-enhanced', (async (req, res) => {
+extractRoutes.post('/hubspot-invoices-enhanced', async (req, res) => {
   try {
     logger.info('Starting FULL enhanced HubSpot invoice extraction with line items and tax support...');
     
@@ -104,10 +104,10 @@ extractRoutes.post('/hubspot-invoices-enhanced', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Test enhanced extraction on a single invoice
-extractRoutes.post('/enhanced-extraction/:invoiceId', (async (req, res) => {
+extractRoutes.post('/enhanced-extraction/:invoiceId', async (req, res) => {
   try {
     const invoiceId = req.params.invoiceId;
     logger.info(`Testing enhanced extraction for invoice ${invoiceId}...`);
@@ -183,4 +183,4 @@ extractRoutes.post('/enhanced-extraction/:invoiceId', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});

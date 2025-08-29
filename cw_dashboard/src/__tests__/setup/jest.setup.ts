@@ -5,16 +5,172 @@
 
 import '@testing-library/jest-dom';
 import 'jest-axe/extend-expect';
-import 'resize-observer-polyfill/lib/ResizeObserver.global';
+import 'resize-observer-polyfill';
 import 'intersection-observer';
 
 // Mock Next.js router
 import { jest } from '@jest/globals';
 
+// Import and setup mocks
+import React from 'react';
+
+// Mock Next.js components
+jest.mock('next/link', () => {
+  const MockLink = ({ children, href, ...props }: { children: React.ReactNode; href: string; [key: string]: any }) => {
+    return React.createElement('a', { href, ...props }, children);
+  };
+  MockLink.displayName = 'MockLink';
+  return MockLink;
+});
+
+jest.mock('next/image', () => {
+  const MockImage = ({ src, alt, ...props }: { src: string; alt: string; [key: string]: any }) => {
+    return React.createElement('img', { src, alt, ...props });
+  };
+  MockImage.displayName = 'MockImage';
+  return MockImage;
+});
+
+jest.mock('next/router', () => ({
+  useRouter: () => ({
+    route: '/',
+    pathname: '/',
+    query: {},
+    asPath: '/',
+    push: jest.fn(),
+    pop: jest.fn(),
+    reload: jest.fn(),
+    back: jest.fn(),
+    prefetch: jest.fn().mockResolvedValue(undefined as any),
+    beforePopState: jest.fn(),
+    events: {
+      on: jest.fn(),
+      off: jest.fn(),
+      emit: jest.fn(),
+    },
+    isFallback: false,
+    isLocaleDomain: true,
+    isReady: true,
+    defaultLocale: 'en',
+    domainLocales: [],
+    isPreview: false,
+  }),
+  withRouter: (Component: React.ComponentType) => Component,
+}));
+
+// Mock Userfront
+jest.mock('@userfront/react', () => ({
+  Userfront: {
+    init: jest.fn(),
+    user: {
+      isLoggedIn: false,
+      userId: null,
+      userUuid: null,
+      email: null,
+    },
+    logout: jest.fn(),
+    redirectIfLoggedOut: jest.fn(),
+  },
+  SignupForm: Object.assign(
+    ({ children }: { children?: React.ReactNode }) => React.createElement('div', { 'data-testid': 'signup-form' }, children),
+    { displayName: 'SignupForm' }
+  ),
+  LoginForm: Object.assign(
+    ({ children }: { children?: React.ReactNode }) => React.createElement('div', { 'data-testid': 'login-form' }, children),
+    { displayName: 'LoginForm' }
+  ),
+  LogoutButton: Object.assign(
+    ({ children }: { children?: React.ReactNode }) => React.createElement('button', { 'data-testid': 'logout-button' }, children),
+    { displayName: 'LogoutButton' }
+  ),
+}));
+
+// Mock Heroicons
+jest.mock('@heroicons/react/24/outline', () => {
+  const createMockIcon = (name: string) => {
+    const IconComponent = ({ className, ...props }: { className?: string; [key: string]: any }) => 
+      React.createElement('svg', { 
+        className, 
+        'data-testid': `${name.toLowerCase()}-icon`,
+        'aria-hidden': 'true',
+        fill: 'none',
+        stroke: 'currentColor',
+        viewBox: '0 0 24 24',
+        ...props 
+      });
+    IconComponent.displayName = `${name}Icon`;
+    return IconComponent;
+  };
+
+  return new Proxy({}, {
+    get: (target, prop) => {
+      if (typeof prop === 'string') {
+        return createMockIcon(prop);
+      }
+      return undefined;
+    }
+  });
+});
+
+jest.mock('@heroicons/react/24/solid', () => {
+  const createMockIcon = (name: string) => {
+    const IconComponent = ({ className, ...props }: { className?: string; [key: string]: any }) => 
+      React.createElement('svg', { 
+        className, 
+        'data-testid': `${name.toLowerCase()}-icon`,
+        'aria-hidden': 'true',
+        fill: 'currentColor',
+        viewBox: '0 0 24 24',
+        ...props 
+      });
+    IconComponent.displayName = `${name}Icon`;
+    return IconComponent;
+  };
+
+  return new Proxy({}, {
+    get: (target, prop) => {
+      if (typeof prop === 'string') {
+        return createMockIcon(prop);
+      }
+      return undefined;
+    }
+  });
+});
+
+// Mock Headless UI
+jest.mock('@headlessui/react', () => ({
+  Transition: {
+    Root: ({ children, show }: { children: React.ReactNode; show?: boolean }) => 
+      show !== false ? React.createElement('div', { 'data-testid': 'transition-root' }, children) : null,
+    Child: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('div', { 'data-testid': 'transition-child' }, children),
+  },
+  Dialog: ({ children, open, onClose }: { children: React.ReactNode; open: boolean; onClose: () => void }) =>
+    open ? React.createElement('div', { 
+      'data-testid': 'dialog',
+      role: 'dialog',
+      onClick: onClose 
+    }, children) : null,
+  Menu: {
+    Button: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('button', { 'data-testid': 'menu-button' }, children),
+    Items: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('div', { 'data-testid': 'menu-items' }, children),
+    Item: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('div', { 'data-testid': 'menu-item' }, children),
+  },
+  Disclosure: {
+    Button: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('button', { 'data-testid': 'disclosure-button' }, children),
+    Panel: ({ children }: { children: React.ReactNode }) => 
+      React.createElement('div', { 'data-testid': 'disclosure-panel' }, children),
+  },
+}));
+
 // Mock window.matchMedia for responsive testing
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation((query: string) => ({
+  value: jest.fn((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -52,10 +208,10 @@ Object.defineProperty(window, 'CSS', {
 
 // Mock getComputedStyle for CSS testing
 const originalGetComputedStyle = window.getComputedStyle;
-window.getComputedStyle = jest.fn().mockImplementation((element) => {
+window.getComputedStyle = jest.fn((element: Element): CSSStyleDeclaration => {
   return {
     ...originalGetComputedStyle(element),
-    getPropertyValue: jest.fn((prop) => {
+    getPropertyValue: jest.fn((prop: string) => {
       // Mock navigation CSS custom properties
       const mockValues: Record<string, string> = {
         '--nav-width-rail': '80px',
@@ -70,10 +226,10 @@ window.getComputedStyle = jest.fn().mockImplementation((element) => {
         '--nav-transition-duration': '300ms',
         '--nav-transition-easing': 'cubic-bezier(0.4, 0.0, 0.2, 1)',
       };
-      return mockValues[prop] || '';
+      return mockValues[prop as string] || '';
     }),
-  };
-});
+  } as CSSStyleDeclaration;
+}) as typeof window.getComputedStyle;
 
 // Mock localStorage for preferences testing
 const localStorageMock = {
@@ -94,8 +250,8 @@ Object.defineProperty(window, 'sessionStorage', {
 });
 
 // Mock requestAnimationFrame for animation testing
-global.requestAnimationFrame = jest.fn((cb) => setTimeout(cb, 16));
-global.cancelAnimationFrame = jest.fn((id) => clearTimeout(id));
+global.requestAnimationFrame = jest.fn((cb: FrameRequestCallback) => setTimeout(cb, 16) as unknown as number);
+global.cancelAnimationFrame = jest.fn((id: number) => clearTimeout(id as unknown as NodeJS.Timeout));
 
 // Mock scroll behavior for scroll-based interactions
 Element.prototype.scrollIntoView = jest.fn();
@@ -108,6 +264,8 @@ HTMLElement.prototype.blur = jest.fn();
 
 // Mock clipboard API for copy functionality
 Object.defineProperty(navigator, 'clipboard', {
+  configurable: true,
+  writable: true,
   value: {
     writeText: jest.fn().mockResolvedValue(undefined),
     readText: jest.fn().mockResolvedValue(''),
@@ -198,7 +356,7 @@ global.testUtils = {
   },
 
   // Helper to wait for animations
-  waitForAnimation: () => new Promise(resolve => requestAnimationFrame(resolve)),
+  waitForAnimation: () => new Promise<void>(resolve => requestAnimationFrame(() => resolve())),
 
   // Helper to trigger custom events
   triggerCustomEvent: (element: Element, eventType: string, detail?: any) => {
@@ -232,6 +390,12 @@ afterEach(() => {
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
 });
+
+// Import mock factories from mocks.setup
+import { mockFactories } from './mocks.setup';
+
+// Make mockFactories available globally
+global.mockFactories = mockFactories;
 
 // Export types for test files
 export type MockUser = ReturnType<typeof global.testUtils.createMockUser>;

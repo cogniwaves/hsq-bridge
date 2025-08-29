@@ -1,8 +1,25 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { asyncHandler } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { getQuickBooksClient } from '../services/quickbooksClient';
 import { createSuccessResponse, createErrorResponse } from '../utils/responses';
+
+interface QuickBooksStatus {
+  configured: boolean;
+  authenticated: boolean;
+  companyId: string;
+  hasAccessToken: boolean;
+  hasRefreshToken: boolean;
+  sandboxMode: boolean;
+  connectionTest?: string;
+  companyName?: string;
+  error?: string;
+}
+
+interface CompanyInfo {
+  CompanyName?: string;
+  [key: string]: unknown;
+}
 
 export const authRoutes = Router();
 
@@ -10,11 +27,11 @@ export const authRoutes = Router();
  * GET /api/auth/quickbooks/simple-status  
  * Simple QuickBooks configuration status check
  */
-authRoutes.get('/quickbooks/simple-status', asyncHandler(async (req, res) => {
+authRoutes.get('/quickbooks/simple-status', asyncHandler(async (req: Request, res: Response) => {
   const { getQuickBooksConfig } = await import('../config');
   const config = getQuickBooksConfig();
   
-  const status = {
+  const status: QuickBooksStatus = {
     configured: !!(config.clientId && config.clientSecret),
     authenticated: !!(config.accessToken && config.companyId),
     companyId: config.companyId || 'Not set',
@@ -30,7 +47,7 @@ authRoutes.get('/quickbooks/simple-status', asyncHandler(async (req, res) => {
       status.connectionTest = connectionTest ? 'success' : 'failed';
       
       if (connectionTest) {
-        const companyInfo = await quickbooksService.getCompanyInfo();
+        const companyInfo = await quickbooksService.getCompanyInfo() as CompanyInfo | undefined;
         status.companyName = companyInfo?.CompanyName || 'Unknown';
       }
     } catch (error) {
@@ -46,7 +63,7 @@ authRoutes.get('/quickbooks/simple-status', asyncHandler(async (req, res) => {
  * GET /api/auth/quickbooks/oauth-url
  * Generate OAuth URL for manual token acquisition
  */
-authRoutes.get('/quickbooks/oauth-url', asyncHandler(async (req, res) => {
+authRoutes.get('/quickbooks/oauth-url', asyncHandler(async (req: Request, res: Response) => {
   const { getQuickBooksConfig } = await import('../config');
   const config = getQuickBooksConfig();
   
@@ -164,7 +181,7 @@ authRoutes.post('/quickbooks/exchange-token', asyncHandler(async (req, res) => {
  * GET /api/auth/quickbooks
  * Génère l'URL d'autorisation QuickBooks et redirige l'utilisateur
  */
-authRoutes.get('/quickbooks', asyncHandler(async (req, res) => {
+authRoutes.get('/quickbooks', asyncHandler(async (req: Request, res: Response) => {
   logger.info('Initiating QuickBooks OAuth flow');
   
   try {
@@ -199,8 +216,13 @@ authRoutes.get('/quickbooks', asyncHandler(async (req, res) => {
  * GET /api/auth/quickbooks/callback
  * Callback OAuth QuickBooks - échange le code pour des tokens
  */
-authRoutes.get('/quickbooks/callback', asyncHandler(async (req, res) => {
-  const { code, realmId, state, error: oauthError } = req.query;
+authRoutes.get('/quickbooks/callback', asyncHandler(async (req: Request, res: Response) => {
+  const { code, realmId, state, error: oauthError } = req.query as {
+    code?: string;
+    realmId?: string;
+    state?: string;
+    error?: string;
+  };
   
   logger.info(`QuickBooks OAuth callback received - RealmId: ${realmId}, State: ${state}`);
   

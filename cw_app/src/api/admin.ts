@@ -1,14 +1,15 @@
 // Endpoints d'administration pour la gestion des utilisateurs et de la sécurité
-import { Router } from 'express';
-import { ApiHandler, AuthenticatedRequest } from '../types/api';
+import { Router, Response } from 'express';
+import { AuthenticatedRequest } from '../types/api';
 import { requirePermission } from '../middleware/auth';
 import { getRateLimitStats, resetAllRateLimits, rateLimits } from '../middleware/rateLimiting';
 import { logger } from '../utils/logger';
+import { asyncHandler } from '../utils/errorHandler';
 
 export const adminRoutes = Router();
 
 // Endpoint pour afficher les informations d'authentification actuelles
-adminRoutes.get('/auth/whoami', ((req: AuthenticatedRequest, res) => {
+adminRoutes.get('/auth/whoami', (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
     res.status(401).json({
       success: false,
@@ -28,10 +29,10 @@ adminRoutes.get('/auth/whoami', ((req: AuthenticatedRequest, res) => {
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+});
 
 // Endpoint pour tester différents niveaux de permissions
-adminRoutes.get('/auth/test-permissions', ((req: AuthenticatedRequest, res) => {
+adminRoutes.get('/auth/test-permissions', (req: AuthenticatedRequest, res: Response) => {
   const userPermissions = req.user?.permissions || [];
   
   res.json({
@@ -48,10 +49,10 @@ adminRoutes.get('/auth/test-permissions', ((req: AuthenticatedRequest, res) => {
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+});
 
 // Endpoint pour obtenir les statistiques de rate limiting (admin seulement)
-adminRoutes.get('/security/rate-limits', requirePermission('admin'), ((req, res) => {
+adminRoutes.get('/security/rate-limits', requirePermission('admin'), asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
   const stats = getRateLimitStats();
   
   res.json({
@@ -65,10 +66,10 @@ adminRoutes.get('/security/rate-limits', requirePermission('admin'), ((req, res)
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));
 
 // Endpoint pour réinitialiser tous les rate limits (admin seulement)
-adminRoutes.post('/security/rate-limits/reset', requirePermission('admin'), ((req: AuthenticatedRequest, res) => {
+adminRoutes.post('/security/rate-limits/reset', requirePermission('admin'), asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const resetCount = resetAllRateLimits();
   
   logger.warn(`Rate limits reset by admin`, {
@@ -85,10 +86,10 @@ adminRoutes.post('/security/rate-limits/reset', requirePermission('admin'), ((re
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));
 
 // Endpoint pour obtenir des métriques système (admin seulement)
-adminRoutes.get('/system/metrics', requirePermission('admin'), ((req, res) => {
+adminRoutes.get('/system/metrics', requirePermission('admin'), asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
   const memoryUsage = process.memoryUsage();
   
   res.json({
@@ -116,10 +117,10 @@ adminRoutes.get('/system/metrics', requirePermission('admin'), ((req, res) => {
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));
 
 // Endpoint pour tester différents types d'authentification
-adminRoutes.get('/auth/test-modes', rateLimits.admin, ((req, res) => {
+adminRoutes.get('/auth/test-modes', rateLimits.admin, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const authHeader = req.header('Authorization');
   const apiKey = req.header('X-API-Key') || req.query.api_key;
   
@@ -152,10 +153,10 @@ adminRoutes.get('/auth/test-modes', rateLimits.admin, ((req, res) => {
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));
 
 // Endpoint pour la validation des variables d'environnement (admin seulement)
-adminRoutes.get('/system/env-validation', requirePermission('admin'), ((req, res) => {
+adminRoutes.get('/system/env-validation', requirePermission('admin'), asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
   const requiredEnvVars = [
     'HUBSPOT_PRIVATE_APP_TOKEN',
     'DATABASE_URL',
@@ -210,10 +211,10 @@ adminRoutes.get('/system/env-validation', requirePermission('admin'), ((req, res
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));
 
 // Endpoint de documentation sur l'authentification
-adminRoutes.get('/auth/docs', rateLimits.public, ((req, res) => {
+adminRoutes.get('/auth/docs', rateLimits.public, asyncHandler(async (_req: AuthenticatedRequest, res: Response) => {
   res.json({
     success: true,
     documentation: {
@@ -262,4 +263,4 @@ adminRoutes.get('/auth/docs', rateLimits.public, ((req, res) => {
     },
     timestamp: new Date().toISOString()
   });
-}) as ApiHandler);
+}));

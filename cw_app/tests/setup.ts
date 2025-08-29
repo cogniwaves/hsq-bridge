@@ -94,6 +94,37 @@ async function setupTestDatabase() {
     });
     
     console.log('✅ Test database schema initialized');
+    
+    // Create system user first (required for tenant creation)
+    await testPrisma.user.upsert({
+      where: { id: 'system' },
+      update: {},
+      create: {
+        id: 'system',
+        email: 'system@test.local',
+        firstName: 'System',
+        lastName: 'User',
+        passwordHash: '$2a$10$test.system.hash',
+        emailVerified: true,
+        emailVerifiedAt: new Date()
+      }
+    });
+    
+    // Create default test tenant for all tests
+    await testPrisma.tenant.upsert({
+      where: { id: 'test-tenant-id' },
+      update: {},
+      create: {
+        id: 'test-tenant-id',
+        name: 'Test Tenant',
+        slug: 'test-tenant',
+        isActive: true,
+        maxUsers: 100,
+        createdById: 'system'
+      }
+    });
+    
+    console.log('✅ Test tenant and system user created');
   } catch (error) {
     throw new Error(`Failed to setup test database schema: ${error}`);
   }
@@ -101,12 +132,18 @@ async function setupTestDatabase() {
 
 async function cleanupTestDatabase() {
   try {
-    // Clean up all test data
+    // Clean up all test data (in dependency order)
     await testPrisma.invoicePayment.deleteMany();
     await testPrisma.syncLog.deleteMany();
     await testPrisma.webhookEvent.deleteMany();
     await testPrisma.paymentMapping.deleteMany();
     await testPrisma.invoiceMapping.deleteMany();
+    await testPrisma.lineItem.deleteMany();
+    await testPrisma.taxSummary.deleteMany();
+    await testPrisma.invoiceAssociation.deleteMany();
+    await testPrisma.contact.deleteMany();
+    await testPrisma.company.deleteMany();
+    // Keep the tenant for next test run
     
     console.log('✅ Test database cleaned up');
   } catch (error) {
@@ -116,12 +153,18 @@ async function cleanupTestDatabase() {
 
 async function resetTestData() {
   try {
-    // Clear all test data between tests
+    // Clear all test data between tests (in dependency order)
     await testPrisma.invoicePayment.deleteMany();
     await testPrisma.syncLog.deleteMany();
     await testPrisma.webhookEvent.deleteMany();
     await testPrisma.paymentMapping.deleteMany();
     await testPrisma.invoiceMapping.deleteMany();
+    await testPrisma.lineItem.deleteMany();
+    await testPrisma.taxSummary.deleteMany();
+    await testPrisma.invoiceAssociation.deleteMany();
+    await testPrisma.contact.deleteMany();
+    await testPrisma.company.deleteMany();
+    // Keep the tenant between tests
   } catch (error) {
     console.warn('Warning: Failed to reset test data:', error);
   }
@@ -131,6 +174,7 @@ async function resetTestData() {
 export const createTestInvoice = async (overrides = {}) => {
   return testPrisma.invoiceMapping.create({
     data: {
+      tenant_id: 'test-tenant-id', // Add required tenant_id
       hubspotDealId: 'test-deal-123',
       totalAmount: 1000,
       currency: 'USD',
@@ -146,6 +190,7 @@ export const createTestInvoice = async (overrides = {}) => {
 export const createTestPayment = async (overrides = {}) => {
   return testPrisma.paymentMapping.create({
     data: {
+      tenant_id: 'test-tenant-id', // Add required tenant_id
       stripePaymentId: 'pi_test_123',
       amount: 1000,
       currency: 'USD',
@@ -172,6 +217,7 @@ export const createTestAllocation = async (invoiceId: string, paymentId: string,
 export const createTestSyncLog = async (overrides = {}) => {
   return testPrisma.syncLog.create({
     data: {
+      // SyncLog doesn't have tenant_id
       entityType: 'INVOICE',
       entityId: 'test-entity-123',
       operation: 'CREATE',
@@ -185,6 +231,7 @@ export const createTestSyncLog = async (overrides = {}) => {
 export const createTestWebhookEvent = async (overrides = {}) => {
   return testPrisma.webhookEvent.create({
     data: {
+      tenant_id: 'test-tenant-id', // Optional tenant_id for webhook events
       platform: 'STRIPE',
       eventType: 'payment_intent.succeeded',
       eventId: 'evt_test_123',

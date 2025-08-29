@@ -6,7 +6,7 @@ import { HubSpotInvoice } from '../types/hubspot';
 export const analysisRoutes = Router();
 
 // SQL validation queries endpoint
-analysisRoutes.get('/sql-validation', (async (req, res) => {
+analysisRoutes.get('/sql-validation', async (req, res) => {
   try {
     const { prisma } = await import('../index');
     
@@ -95,10 +95,10 @@ analysisRoutes.get('/sql-validation', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Analyze tax breakdown patterns in our data
-analysisRoutes.get('/tax-breakdown-analysis', (async (req, res) => {
+analysisRoutes.get('/tax-breakdown-analysis', async (req, res) => {
   try {
     const { prisma } = await import('../index');
     
@@ -149,10 +149,10 @@ analysisRoutes.get('/tax-breakdown-analysis', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Debug endpoint to see raw HubSpot invoice properties
-analysisRoutes.get('/hubspot-invoice-debug', (async (req, res) => {
+analysisRoutes.get('/hubspot-invoice-debug', async (req, res) => {
   try {
     logger.info('Debugging HubSpot invoice properties...');
     
@@ -193,10 +193,10 @@ analysisRoutes.get('/hubspot-invoice-debug', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});
 
 // Quick extraction test endpoint (deals fallback)
-analysisRoutes.post('/hubspot-sample-extract', (async (req, res) => {
+analysisRoutes.post('/hubspot-sample-extract', async (req, res) => {
   try {
     logger.info('Testing HubSpot sample extraction...');
     
@@ -242,4 +242,4 @@ analysisRoutes.post('/hubspot-sample-extract', (async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
-}) as ApiHandler);
+});

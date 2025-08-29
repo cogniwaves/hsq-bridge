@@ -16,8 +16,8 @@ import {
   validateRequest,
   tenantInvitationSchema,
   acceptInvitationSchema,
-  resendInvitationSchema,
-  revokeInvitationSchema,
+  // resendInvitationSchema,
+  // revokeInvitationSchema,
   ValidationError
 } from '../utils/auth/validationSchemas';
 import { TenantRole, InvitationStatus } from '@prisma/client';
