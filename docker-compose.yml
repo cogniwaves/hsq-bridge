@@ -23,12 +23,29 @@ services:
   cw_hsq_redis:
     image: redis:7-alpine
     container_name: cw_hsq_redis
+    # Add custom Redis configuration for Phase 8 features
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    environment:
+      # Phase 8 Redis Configuration
+      REDIS_SAVE: "300 10 60 1000"  # Save snapshots
+      REDIS_MAXMEMORY: "256mb"
+      REDIS_MAXMEMORY_POLICY: "allkeys-lru"
     ports:
       - "16379:6379"
     volumes:
       - cw_hsq_redis_data:/data
+      # Add Redis configuration file if needed
+      # - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
     networks:
       - cw_hsq_network
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -58,6 +75,17 @@ services:
       API_KEY_ADMIN: ${API_KEY_ADMIN}
       API_KEY_READ_ONLY: ${API_KEY_READ_ONLY}
       API_KEY_WEBHOOK: ${API_KEY_WEBHOOK}
+      # Phase 8 Configuration Management Environment Variables
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-demo-key-change-in-production}
+      CONFIG_BACKUP_ENABLED: ${CONFIG_BACKUP_ENABLED:-true}
+      CONFIG_BACKUP_INTERVAL: ${CONFIG_BACKUP_INTERVAL:-3600}
+      OAUTH_STATE_TTL: ${OAUTH_STATE_TTL:-600}
+      HEALTH_CHECK_INTERVAL: ${HEALTH_CHECK_INTERVAL:-300}
+      CIRCUIT_BREAKER_ENABLED: ${CIRCUIT_BREAKER_ENABLED:-true}
+      AUDIT_LOG_RETENTION_DAYS: ${AUDIT_LOG_RETENTION_DAYS:-90}
+      CONFIGURATION_API_RATE_LIMIT: ${CONFIGURATION_API_RATE_LIMIT:-10}
+      QUICKBOOKS_OAUTH_REDIRECT_URI: ${QUICKBOOKS_OAUTH_REDIRECT_URI:-http://localhost:13001/api/config/quickbooks/callback}
+      CONFIG_VALIDATION_TIMEOUT: ${CONFIG_VALIDATION_TIMEOUT:-30}
     ports:
       - "13000:3000"
     depends_on:
@@ -65,7 +93,10 @@ services:
         condition: service_healthy
       cw_hsq_redis:
         condition: service_healthy
-    # volumes:
+    volumes:
+      # Configuration backup storage for Phase 8
+      - cw_hsq_config_backups:/app/backups
+      # Development volume mounting (commented for production)
       #   - ./cw_app:/app
       #   - /app/node_modules
     networks:
@@ -80,11 +111,11 @@ services:
           memory: 256M
           cpus: '0.5'
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/health && curl -f http://localhost:3000/api/config/health || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
-      start_period: 40s
+      start_period: 45s
 
   cw_hsq_dashboard:
     build:
@@ -98,6 +129,14 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:13000
       NEXT_PUBLIC_USERFRONT_WORKSPACE_ID: ${NEXT_PUBLIC_USERFRONT_WORKSPACE_ID:-8nwx667b}
       PORT: 3000
+      # Phase 8 Configuration Management UI Variables
+      NEXT_PUBLIC_ENABLE_CONFIGURATION_UI: ${NEXT_PUBLIC_ENABLE_CONFIGURATION_UI:-true}
+      NEXT_PUBLIC_CONFIGURATION_API_BASE: ${NEXT_PUBLIC_CONFIGURATION_API_BASE:-http://localhost:13000/api/config}
+      NEXT_PUBLIC_OAUTH_CALLBACK_BASE: ${NEXT_PUBLIC_OAUTH_CALLBACK_BASE:-http://localhost:13001}
+      NEXT_PUBLIC_ENABLE_HEALTH_DASHBOARD: ${NEXT_PUBLIC_ENABLE_HEALTH_DASHBOARD:-true}
+      NEXT_PUBLIC_ENABLE_AUDIT_LOGS: ${NEXT_PUBLIC_ENABLE_AUDIT_LOGS:-true}
+      NEXT_PUBLIC_MAX_FILE_UPLOAD_SIZE: ${NEXT_PUBLIC_MAX_FILE_UPLOAD_SIZE:-10485760}
+      NEXT_PUBLIC_CONFIGURATION_WIZARD_ENABLED: ${NEXT_PUBLIC_CONFIGURATION_WIZARD_ENABLED:-true}
     ports:
       - "13001:3000"
     depends_on:
@@ -114,11 +153,11 @@ services:
           memory: 128M
           cpus: '0.25'
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 && curl -f http://localhost:3000/api/health || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
-      start_period: 40s
+      start_period: 45s
 
   cw_hsq_nginx:
     image: nginx:alpine
@@ -145,16 +184,18 @@ services:
           memory: 32M
           cpus: '0.1'
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost/health && curl -f http://localhost/api/config/health || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
-      start_period: 10s
+      start_period: 15s
 
 volumes:
   cw_hsq_postgres_data:
   cw_hsq_redis_data:
   cw_hsq_nginx_logs:
+  # Phase 8 Configuration Management Volumes
+  cw_hsq_config_backups:
 
 networks:
   cw_hsq_network:

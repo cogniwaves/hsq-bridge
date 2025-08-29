@@ -7,9 +7,16 @@ services:
       target: production  # Use production stage of Dockerfile
     environment:
       NODE_ENV: production
+      # Phase 8 Production Configuration Overrides
+      CONFIG_BACKUP_ENABLED: true
+      CIRCUIT_BREAKER_ENABLED: true
+      AUDIT_LOG_RETENTION_DAYS: 365
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY_PRODUCTION}
     volumes:
       # Remove development volume mounts
       - cw_hsq_app_logs:/app/logs
+      # Phase 8: Enhanced production backup storage
+      - cw_hsq_config_backups:/app/backups:rw
     deploy:
       resources:
         limits:
@@ -23,6 +30,11 @@ services:
   cw_hsq_dashboard:
     environment:
       NODE_ENV: production
+      # Phase 8 Production Dashboard Configuration
+      NEXT_PUBLIC_ENABLE_CONFIGURATION_UI: true
+      NEXT_PUBLIC_ENABLE_HEALTH_DASHBOARD: true
+      NEXT_PUBLIC_ENABLE_AUDIT_LOGS: true
+      NEXT_PUBLIC_CONFIGURATION_WIZARD_ENABLED: true
     deploy:
       resources:
         limits:
@@ -62,13 +74,17 @@ services:
         reservations:
           memory: 256M
           cpus: '0.5'
+    # Phase 8: Enhanced Redis configuration for OAuth state and configuration caching
     command: >
       redis-server
-      --maxmemory 256mb
+      --maxmemory 512mb
       --maxmemory-policy allkeys-lru
       --save 900 1
       --save 300 10
       --save 60 10000
+      --appendonly yes
+      --auto-aof-rewrite-percentage 100
+      --auto-aof-rewrite-min-size 64mb
 
   cw_hsq_nginx:
     deploy:

@@ -76,6 +76,13 @@ test-unit: ## Run unit tests only
 test-integration: ## Run integration tests only
 	@./scripts/run-tests.sh integration
 
+# Phase 8 Configuration Management Tests
+test-config: ## Run configuration management tests
+	@./scripts/run-config-tests.sh
+
+test-config-workflow: ## Test full configuration workflow
+	@./scripts/test-config-workflow.sh
+
 test-backend: ## Run backend tests only
 	@./scripts/run-tests.sh backend
 
@@ -178,6 +185,16 @@ health: ## Check application health
 health-detailed: ## Detailed health check
 	@curl -s http://localhost:13000/health/detailed | jq '.' 2>/dev/null || curl -s http://localhost:13000/health/detailed
 
+# Phase 8 Configuration Management Health Checks
+config-health: ## Check configuration management health
+	@curl -s http://localhost:13000/api/config/health | jq '.' 2>/dev/null || curl -s http://localhost:13000/api/config/health
+
+config-status: ## Show all configuration status
+	@curl -s http://localhost:13000/api/config/status | jq '.' 2>/dev/null || curl -s http://localhost:13000/api/config/status
+
+config-audit: ## Show recent configuration audit logs
+	@curl -s http://localhost:13000/api/config/audit | jq '.' 2>/dev/null || curl -s http://localhost:13000/api/config/audit
+
 metrics: ## Show application metrics
 	@curl -s http://localhost:13000/api/metrics | jq '.' 2>/dev/null || curl -s http://localhost:13000/api/metrics
 
@@ -212,6 +229,17 @@ backup: ## Create full backup (database + config)
 	@cp .env backups/env_$(shell date +%Y%m%d_%H%M%S).backup
 	@echo "Backup created in backups/ directory"
 
+# Phase 8 Configuration Management Backup
+backup-config: ## Backup configuration data and settings
+	@mkdir -p backups/config
+	@docker compose exec cw_hsq_app node -e "require('./dist/scripts/backup-config.js')" > backups/config/config_$(shell date +%Y%m%d_%H%M%S).json
+	@echo "Configuration backup created in backups/config/ directory"
+
+restore-config: ## Restore configuration from backup (provide CONFIG_FILE=filename)
+	@if [ -z "$(CONFIG_FILE)" ]; then echo "Usage: make restore-config CONFIG_FILE=backups/config/config_YYYYMMDD_HHMMSS.json"; exit 1; fi
+	@docker compose exec -T cw_hsq_app node -e "require('./dist/scripts/restore-config.js')" < $(CONFIG_FILE)
+	@echo "Configuration restored from $(CONFIG_FILE)"
+
 restore: ## Restore from backup (provide BACKUP_FILE=filename)
 	@if [ -z "$(BACKUP_FILE)" ]; then echo "Usage: make restore BACKUP_FILE=backups/db_YYYYMMDD_HHMMSS.sql"; exit 1; fi
 	@docker compose exec -T cw_hsq_postgres psql -U hs_bridge_user -d hs_bridge < $(BACKUP_FILE)
@@ -237,7 +265,15 @@ info: ## Show project information
 	@echo "  • API Info:       http://localhost:13000/api"
 	@echo "  • Metrics:        http://localhost:13000/api/metrics"
 	@echo ""
+	@echo "Phase 8 Configuration Management:"
+	@echo "  • Config Health:  http://localhost:13000/api/config/health"
+	@echo "  • Settings UI:    http://localhost:13001/settings"
+	@echo "  • HubSpot Setup:  http://localhost:13001/settings/hubspot"
+	@echo "  • QuickBooks:     http://localhost:13001/settings/quickbooks"
+	@echo "  • Stripe Setup:   http://localhost:13001/settings/stripe"
+	@echo ""
 	@echo "Management:"
 	@echo "  • Prisma Studio: make db-studio"
 	@echo "  • Logs:          make logs"
 	@echo "  • Tests:         make test"
+	@echo "  • Config Health: make config-health"
