@@ -99,6 +99,15 @@ async function startServer() {
     await prisma.$connect();
     logger.info('✅ Database connected successfully');
     
+    // Initialize token management after config is loaded
+    try {
+      const { initializeTokenManagement } = await import('./api/tokenManagement');
+      await initializeTokenManagement();
+      logger.info('✅ Token management initialized');
+    } catch (error) {
+      logger.warn('Token management initialization failed (will continue without it):', error);
+    }
+    
     // Test connectivity to all external services - temporarily disabled  
     // await logConnectivityReport();
     logger.info('✅ Connectivity check skipped (testing mode)');

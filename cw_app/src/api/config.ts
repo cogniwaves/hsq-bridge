@@ -68,6 +68,94 @@ configRoutes.use(tenantIsolation as any);
 const configRateLimit = perUserRateLimit(20, 5); // 20 requests per 5 minutes
 
 /**
+ * GET /api/config/overview
+ * Overall configuration overview for settings dashboard
+ * Returns summary of all integrations and recent activity
+ */
+configRoutes.get('/overview',
+  asyncHandler(async (req: ConfigRequest, res: Response) => {
+    const tenantId = req.tenant?.id;
+    
+    if (!tenantId) {
+      return res.status(403).json(createErrorResponse(
+        'Tenant context required',
+        'You must be a member of a tenant to access this resource'
+      ));
+    }
+
+    try {
+      // Get all configurations
+      const configs = await prisma.integrationConfig.findMany({
+        where: {
+          tenantId,
+          deletedAt: null
+        },
+        include: {
+          webhookConfigs: {
+            where: { deletedAt: null }
+          }
+        }
+      });
+
+      // Get recent audit logs
+      const recentActivity = await prisma.configurationAuditLog.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'desc' },
+        take: 10,
+        select: {
+          id: true,
+          action: true,
+          entityType: true,
+          platform: true,
+          performedByName: true,
+          createdAt: true,
+          riskLevel: true
+        }
+      });
+
+      // Build overview
+      const overview = {
+        totalIntegrations: configs.length,
+        activeIntegrations: configs.filter(c => c.isActive).length,
+        healthyIntegrations: configs.filter(c => c.healthStatus === HealthStatus.HEALTHY).length,
+        totalWebhooks: configs.reduce((sum, c) => sum + (c.webhookConfigs?.length || 0), 0),
+        platforms: {
+          hubspot: {
+            configured: configs.some(c => c.platform === Platform.HUBSPOT && c.isActive),
+            healthy: configs.some(c => c.platform === Platform.HUBSPOT && c.healthStatus === HealthStatus.HEALTHY),
+            webhooks: configs.filter(c => c.platform === Platform.HUBSPOT).reduce((sum, c) => sum + (c.webhookConfigs?.length || 0), 0)
+          },
+          stripe: {
+            configured: configs.some(c => c.platform === Platform.STRIPE && c.isActive),
+            healthy: configs.some(c => c.platform === Platform.STRIPE && c.healthStatus === HealthStatus.HEALTHY),
+            webhooks: configs.filter(c => c.platform === Platform.STRIPE).reduce((sum, c) => sum + (c.webhookConfigs?.length || 0), 0)
+          },
+          quickbooks: {
+            configured: configs.some(c => c.platform === Platform.QUICKBOOKS && c.isActive),
+            healthy: configs.some(c => c.platform === Platform.QUICKBOOKS && c.healthStatus === HealthStatus.HEALTHY),
+            webhooks: configs.filter(c => c.platform === Platform.QUICKBOOKS).reduce((sum, c) => sum + (c.webhookConfigs?.length || 0), 0)
+          }
+        },
+        recentActivity,
+        lastUpdated: configs.reduce((latest, c) => {
+          const updated = c.updatedAt || c.createdAt;
+          return updated > latest ? updated : latest;
+        }, new Date(0))
+      };
+
+      res.json(createSuccessResponse(overview, 'Configuration overview retrieved'));
+
+    } catch (error) {
+      logger.error('Failed to get configuration overview:', error);
+      res.status(500).json(createErrorResponse(
+        'Failed to retrieve configuration overview',
+        error instanceof Error ? error.message : 'Unknown error'
+      ));
+    }
+  })
+);
+
+/**
  * GET /api/config/status
  * Overall integration status dashboard
  * Returns health status for all configured integrations
@@ -907,6 +995,77 @@ configRoutes.get('/test-connections',
       logger.error('Failed to test connections:', error);
       res.status(500).json(createErrorResponse(
         'Failed to test connections',
+        error instanceof Error ? error.message : 'Unknown error'
+      ));
+    }
+  })
+);
+
+/**
+ * GET /api/config/webhooks/stripe
+ * Get Stripe-specific webhook configuration
+ */
+configRoutes.get('/webhooks/stripe',
+  asyncHandler(async (req: ConfigRequest, res: Response) => {
+    const tenantId = req.tenant?.id;
+    
+    try {
+      const configManager = configurationManager(prisma);
+      const webhooks = await configManager.getWebhookConfigs(tenantId, Platform.STRIPE);
+      
+      // Get Stripe integration config to check if it's configured
+      const stripeConfig = await configManager.getActiveConfig(tenantId, Platform.STRIPE);
+      
+      if (!stripeConfig) {
+        return res.json(createSuccessResponse({
+          configured: false,
+          message: 'Stripe integration not configured',
+          webhooks: []
+        }, 'Stripe webhook configuration status'));
+      }
+      
+      // Mask sensitive data
+      const maskedWebhooks = webhooks.map(webhook => ({
+        id: webhook.id,
+        endpointUrl: webhook.endpointUrl,
+        httpMethod: webhook.httpMethod,
+        isActive: webhook.isActive,
+        authType: webhook.authType,
+        hasSigningSecret: !!webhook.signingSecret,
+        subscribedEvents: webhook.subscribedEvents,
+        circuitBreaker: {
+          enabled: webhook.circuitBreakerEnabled,
+          status: webhook.circuitBreakerStatus,
+          threshold: webhook.circuitBreakerThreshold,
+          consecutiveFailures: webhook.consecutiveFailures
+        },
+        statistics: {
+          totalTriggers: webhook.totalTriggerCount,
+          successCount: webhook.totalSuccessCount,
+          failureCount: webhook.totalFailureCount,
+          lastTrigger: webhook.lastTriggerAt,
+          lastSuccess: webhook.lastSuccessAt,
+          lastFailure: webhook.lastFailureAt,
+          lastError: webhook.lastErrorMessage
+        },
+        createdAt: webhook.createdAt,
+        updatedAt: webhook.updatedAt
+      }));
+
+      res.json(createSuccessResponse({
+        configured: true,
+        webhooks: maskedWebhooks,
+        summary: {
+          total: maskedWebhooks.length,
+          active: maskedWebhooks.filter(w => w.isActive).length,
+          healthy: maskedWebhooks.filter(w => w.circuitBreaker.status === 'CLOSED').length
+        }
+      }, 'Stripe webhook configuration retrieved'));
+
+    } catch (error) {
+      logger.error('Failed to get Stripe webhook config:', error);
+      res.status(500).json(createErrorResponse(
+        'Failed to retrieve Stripe webhook configuration',
         error instanceof Error ? error.message : 'Unknown error'
       ));
     }

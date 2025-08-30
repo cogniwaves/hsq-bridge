@@ -40,6 +40,7 @@ import {
   LockClosedIcon,
   ArrowTopRightOnSquareIcon,
   ChartBarIcon,
+  CreditCardIcon,
 } from '@heroicons/react/24/outline';
 
 // Type definitions
@@ -819,7 +820,7 @@ export default function QuickBooksSettingsPage() {
                   {Object.entries({
                     invoices: { label: 'Invoice Sync', icon: <DocumentTextIcon className="w-4 h-4" /> },
                     customers: { label: 'Customer Sync', icon: <BuildingOfficeIcon className="w-4 h-4" /> },
-                    payments: { label: 'Payment Sync', icon: <BanknotesIcon className="w-4 h-4" /> },
+                    payments: { label: 'Payment Sync', icon: <CreditCardIcon className="w-4 h-4" /> },
                     items: { label: 'Item/Product Sync', icon: <ChartBarIcon className="w-4 h-4" /> },
                     accounts: { label: 'Chart of Accounts', icon: <ChartBarIcon className="w-4 h-4" /> },
                     taxRates: { label: 'Tax Rate Sync', icon: <DocumentTextIcon className="w-4 h-4" /> },

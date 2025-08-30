@@ -19,6 +19,7 @@ import { userAuthRoutes } from './userAuth';
 // import { tenantRoutes } from './tenants';
 // import { invitationRoutes } from './invitations';
 import { configRoutes } from './config';
+import { notificationRoutes } from './notifications';
 import { ApiHandler } from '../types/api';
 import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../middleware/auth';
 import { rateLimits } from '../middleware/rateLimiting';
@@ -183,6 +184,7 @@ apiRoutes.use('/dashboard', rateLimits.read, requirePermission('read'), dashboar
 apiRoutes.use('/dashboard-v2', rateLimits.read, requirePermission('read'), dashboardEnhancedRoutes);
 apiRoutes.use('/metrics', rateLimits.read, requirePermission('read'), metricsRoutes);
 apiRoutes.use('/webhooks', rateLimits.webhook, webhookRoutes); // Webhooks ont leur propre auth
+apiRoutes.use('/notifications', rateLimits.api, requirePermission('read'), notificationRoutes);
 
 // Development and testing routes (authenticated)
 apiRoutes.use('/test', rateLimits.api, requirePermission('read'), testRoutes);

@@ -147,6 +147,41 @@ dashboardRoutes.get('/reconciliation', asyncHandler(async (req, res) => {
   });
 }));
 
+// Dashboard statistics for navigation badges and overview
+dashboardRoutes.get('/stats', asyncHandler(async (req, res) => {
+  const [
+    pendingInvoices,
+    recentPayments,
+    failedWebhooks,
+    pendingTransfers
+  ] = await Promise.all([
+    prisma.invoiceMapping.count({
+      where: { status: { in: ['SENT', 'OVERDUE'] } }
+    }),
+    prisma.paymentMapping.count({
+      where: {
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      }
+    }),
+    prisma.webhookEvent.count({
+      where: {
+        status: 'FAILED',
+        createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+      }
+    }),
+    prisma.quickbooksTransferQueue.count({
+      where: { status: 'PENDING' }
+    })
+  ]);
+
+  res.json({
+    pendingInvoices,
+    recentPayments,
+    failedWebhooks,
+    pendingTransfers
+  });
+}));
+
 // System health metrics for dashboard
 dashboardRoutes.get('/health', asyncHandler(async (req, res) => {
   const now = new Date();

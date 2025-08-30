@@ -6,8 +6,9 @@ WORKDIR /app
 # Install OpenSSL, curl and other dependencies
 RUN apt-get update && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user
-RUN groupadd -g 1001 nodejs && useradd -r -u 1001 -g nodejs nodejs
+# Create non-root user with home directory
+RUN groupadd -g 1001 nodejs && \
+    useradd -r -u 1001 -g nodejs -m -d /home/nodejs nodejs
 
 # Dependencies stage
 FROM base AS deps
@@ -48,8 +49,12 @@ COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
 # Copy production node_modules
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Create logs directory and change ownership to nodejs user
-RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+# Create logs directory and npm cache directory, change ownership to nodejs user
+RUN mkdir -p /app/logs /home/nodejs/.npm && \
+    chown -R nodejs:nodejs /app /home/nodejs
+
+# Set npm cache directory
+ENV NPM_CONFIG_CACHE=/home/nodejs/.npm
 
 # Switch to non-root user
 USER nodejs
@@ -74,8 +79,12 @@ COPY --chown=nodejs:nodejs prisma ./prisma
 # Generate Prisma client
 RUN npx prisma generate
 
-# Create logs directory and change ownership to nodejs user
-RUN mkdir -p /app/logs && chown -R nodejs:nodejs /app
+# Create logs directory and npm cache directory, change ownership to nodejs user
+RUN mkdir -p /app/logs /home/nodejs/.npm && \
+    chown -R nodejs:nodejs /app /home/nodejs
+
+# Set npm cache directory
+ENV NPM_CONFIG_CACHE=/home/nodejs/.npm
 
 # Switch to non-root user
 USER nodejs
