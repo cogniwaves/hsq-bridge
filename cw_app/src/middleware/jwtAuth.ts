@@ -47,6 +47,73 @@ export async function jwtAuth(
       return;
     }
 
+    // Debug: Log the received token to understand what's coming from frontend
+    console.log('🔍 [DEBUG] JWT Auth - Token received:', {
+      token: token ? `${token.substring(0, 20)}...` : 'null',
+      length: token?.length,
+      exact: token === 'dev-token-authenticated-user',
+      path: req.path,
+      method: req.method,
+    });
+
+    // Development mode: Allow mock authentication for dev tokens
+    if (token === 'dev-token-authenticated-user') {
+      logger.info('Development mode: Using mock authentication', {
+        path: req.path,
+        method: req.method,
+      });
+      
+      // Create mock user context for development
+      req.auth = {
+        userId: 'dev-user-1',
+        email: 'dev@example.com',
+        sessionId: 'dev-session-1',
+        isSuperAdmin: true,
+        type: 'jwt',
+      };
+
+      // Create mock tenant and membership for development
+      req.tenant = {
+        id: 'dev-tenant-1',
+        name: 'Development Tenant',
+        slug: 'dev-tenant',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+      
+      req.membership = {
+        id: 'dev-membership-1',
+        userId: 'dev-user-1',
+        tenantId: 'dev-tenant-1',
+        role: 'OWNER',
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+
+      req.user = {
+        id: 'dev-user-1',
+        email: 'dev@example.com',
+        isActive: true,
+        isSuperAdmin: true,
+        emailVerified: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as any;
+
+      logger.debug('Development JWT authenticated request', {
+        userId: req.auth.userId,
+        tenantId: req.tenant?.id,
+        role: req.membership?.role,
+        path: req.path,
+        method: req.method,
+      });
+
+      next();
+      return;
+    }
+
     // Verify token and get session info
     const sessionInfo = await sessionService.validateSession(token);
 

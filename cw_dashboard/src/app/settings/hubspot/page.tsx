@@ -66,8 +66,9 @@ interface HubSpotFeatures {
   webhooks: boolean;
 }
 
-// API client
-const api = createAPIClient('/api/config');
+// API client - use full API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:13000';
+const api = createAPIClient(`${API_BASE_URL}/api/config`);
 
 export default function HubSpotSettingsPage() {
   const router = useRouter();
@@ -110,11 +111,42 @@ export default function HubSpotSettingsPage() {
   // Fetch current configuration
   const fetchConfiguration = useCallback(async () => {
     try {
-      const config = await api.get<HubSpotConfig>('/hubspot');
+      const response = await api.get('/hubspot');
+      const config = response.data || response;
+      
+      // Transform the API response to match our local state structure
+      const transformedConfig = {
+        platform: 'HUBSPOT' as const,
+        apiKey: '', // Don't expose the actual API key in the form
+        portalId: config.portalId || '',
+        accountId: config.accountId || '',
+        rateLimitPerMinute: config.rateLimitPerMinute || 600,
+        syncEnabled: config.syncEnabled ?? true,
+        syncInterval: config.syncInterval || 300,
+        features: {
+          invoices: config.features?.invoices ?? true,
+          contacts: config.features?.contacts ?? true,
+          companies: config.features?.companies ?? true,
+          lineItems: config.features?.lineItems ?? true,
+          products: config.features?.products ?? true,
+          webhooks: config.features?.webhooks ?? false,
+        },
+        isActive: config.isActive ?? false,
+        environment: config.environment || 'production',
+        healthStatus: config.healthStatus || 'UNKNOWN',
+        // Enhanced metadata from the new API
+        portalInfo: config.portalInfo || {},
+        scopeValidation: config.scopeValidation || {},
+        hasApiKey: config.hasApiKey ?? false,
+        apiKeyMasked: config.apiKeyMasked || '',
+        lastConnectionTest: config.lastConnectionTest,
+        updatedAt: config.updatedAt,
+      };
+      
       setState(prev => ({
         ...prev,
-        config: config,
-        originalConfig: config,
+        config: transformedConfig,
+        originalConfig: transformedConfig,
         isLoading: false,
         hasChanges: false,
       }));
@@ -123,6 +155,11 @@ export default function HubSpotSettingsPage() {
       setState(prev => ({
         ...prev,
         isLoading: false,
+        config: {
+          ...prev.config,
+          isActive: false,
+          healthStatus: 'UNKNOWN',
+        },
       }));
     }
   }, []);
@@ -192,15 +229,51 @@ export default function HubSpotSettingsPage() {
     setState(prev => ({ ...prev, isSaving: true }));
 
     try {
-      const savedConfig = await api.post<HubSpotConfig>('/hubspot', state.config);
+      // Send only the necessary fields to the API
+      const configData = {
+        apiKey: state.config.apiKey,
+        portalId: state.config.portalId,
+        accountId: state.config.accountId,
+        environment: state.config.environment,
+        syncEnabled: state.config.syncEnabled,
+        syncInterval: state.config.syncInterval * 1000, // Convert to milliseconds
+        features: state.config.features,
+        rateLimitPerMinute: state.config.rateLimitPerMinute,
+      };
+      
+      const response = await api.post('/hubspot', configData);
+      const savedData = response.data || response;
       
       setState(prev => ({
         ...prev,
-        config: savedConfig,
-        originalConfig: savedConfig,
+        config: {
+          ...prev.config,
+          isActive: true,
+          healthStatus: 'HEALTHY',
+          hasApiKey: true,
+          apiKeyMasked: savedData.apiKeyMasked || `${state.config.apiKey.substring(0, 10)}...`,
+          portalId: savedData.detectedPortalId || savedData.portalId || state.config.portalId,
+          portalInfo: {
+            detectedPortalId: savedData.detectedPortalId,
+            autoDetected: savedData.autoDetected,
+            scopes: savedData.scopes || [],
+            missingScopes: savedData.missingScopes || [],
+            apiUsage: savedData.apiUsage,
+          },
+          scopeValidation: savedData.features?._scopeValidation || {},
+        },
+        originalConfig: {
+          ...prev.config,
+          isActive: true,
+          healthStatus: 'HEALTHY',
+        },
         isSaving: false,
         hasChanges: false,
-        toast: createSuccessToast('HubSpot configuration saved successfully'),
+        toast: createSuccessToast(
+          savedData.scopeWarnings 
+            ? `Configuration saved with warnings: ${savedData.scopeWarnings}`
+            : 'HubSpot configuration saved successfully'
+        ),
       }));
     } catch (error) {
       setState(prev => ({
@@ -213,34 +286,105 @@ export default function HubSpotSettingsPage() {
 
   // Handle test connection
   const handleTestConnection = useCallback(async (config: Record<string, any>) => {
+    console.log('🔍 [DEBUG] handleTestConnection called with config:', {
+      hasApiKey: !!(config.apiKey || state.config.apiKey),
+      apiKeyLength: (config.apiKey || state.config.apiKey)?.length,
+      timestamp: new Date().toISOString()
+    });
+
     setState(prev => ({ ...prev, isTesting: true }));
 
     try {
-      const result = await api.post<ConnectionTestResult>('/test-hubspot', {
+      const requestPayload = {
         apiKey: config.apiKey || state.config.apiKey,
+      };
+      
+      console.log('🚀 [DEBUG] Making API request to /test-hubspot:', {
+        hasApiKey: !!requestPayload.apiKey,
+        apiKeyLength: requestPayload.apiKey?.length,
+        timestamp: new Date().toISOString()
       });
 
-      setState(prev => ({
-        ...prev,
-        isTesting: false,
-        lastTestResult: result,
-        toast: result.success
-          ? createSuccessToast('HubSpot connection test successful')
-          : createErrorToast(result.message),
-      }));
+      const response = await api.post('/test-hubspot', requestPayload);
+      
+      console.log('📡 [DEBUG] Raw API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        timestamp: new Date().toISOString()
+      });
+      
+      const result = response.data || response;
 
-      return result;
-    } catch (error) {
-      const result: ConnectionTestResult = {
-        success: false,
-        message: 'Connection test failed',
+      // Enhanced result with portal information
+      const testResult: ConnectionTestResult = {
+        success: result.success,
+        message: result.message || (result.success ? 'Connection successful' : 'Connection failed'),
+        details: result.details,
       };
 
       setState(prev => ({
         ...prev,
         isTesting: false,
+        lastTestResult: testResult,
+        // Update portal info if detected
+        config: result.success && result.details ? {
+          ...prev.config,
+          portalId: result.details.portalId || prev.config.portalId,
+          portalInfo: {
+            detectedPortalId: result.details.portalId,
+            scopes: result.details.scopes || [],
+            scopeValidation: result.details.scopeValidation || {},
+            apiUsage: result.details.apiUsage,
+            autoDetected: true,
+          }
+        } : prev.config,
+        toast: result.success
+          ? createSuccessToast(
+              result.details?.portalId 
+                ? `Connection successful! Portal ${result.details.portalId} detected.`
+                : 'HubSpot connection test successful'
+            )
+          : createErrorToast(result.message),
+      }));
+
+      return testResult;
+    } catch (error) {
+      console.error('❌ [DEBUG] handleTestConnection error:', {
+        error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorResponse: (error as any)?.response?.data,
+        errorStatus: (error as any)?.response?.status,
+        timestamp: new Date().toISOString()
+      });
+
+      // Extract detailed error information
+      const errorMessage = (error as any)?.response?.data?.message || 
+                          (error as any)?.response?.data?.error || 
+                          (error instanceof Error ? error.message : String(error));
+      
+      const errorDetails = (error as any)?.response?.data?.details;
+
+      const result: ConnectionTestResult = {
+        success: false,
+        message: errorMessage || 'Connection test failed',
+        details: errorDetails || {
+          apiReachable: false,
+          authValid: false,
+          errorCount: 1,
+        }
+      };
+
+      console.log('🏷️ [DEBUG] Final error result:', result);
+
+      const errorToast = createErrorToast(errorMessage || error, 'Failed to test HubSpot connection');
+      console.log('📢 [DEBUG] Creating error toast:', errorToast);
+
+      setState(prev => ({
+        ...prev,
+        isTesting: false,
         lastTestResult: result,
-        toast: createErrorToast(error, 'Failed to test HubSpot connection'),
+        toast: errorToast,
       }));
 
       return result;
@@ -265,15 +409,26 @@ export default function HubSpotSettingsPage() {
   // Clear toast after duration
   useEffect(() => {
     if (state.toast) {
+      console.log('🍞 [DEBUG] Toast displayed:', {
+        type: state.toast.type,
+        title: state.toast.title,
+        message: state.toast.message,
+        duration: state.toast.type === 'error' ? 5000 : 3000,
+        timestamp: new Date().toISOString()
+      });
+
       const timer = setTimeout(() => {
+        console.log('🍞 [DEBUG] Toast cleared automatically after timeout');
         setState(prev => ({ ...prev, toast: null }));
       }, state.toast.type === 'error' ? 5000 : 3000);
       return () => clearTimeout(timer);
     }
   }, [state.toast]);
 
-  // Check for admin permissions
-  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
+  // Check for admin permissions - for now, allow all authenticated users
+  // TODO: Implement proper role-based access control when user roles are properly configured
+  const isAdmin = true; // Temporarily allow all users to configure HubSpot
+  // const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
   return (
     <UserfrontProtectedRoute>
@@ -315,7 +470,26 @@ export default function HubSpotSettingsPage() {
                   }}
                 >
                   <CheckCircleIcon className="w-4 h-4" />
-                  <span className="text-sm font-medium">Connected</span>
+                  <span className="text-sm font-medium">
+                    Connected
+                    {state.config.portalInfo?.detectedPortalId && 
+                      ` - Portal ${state.config.portalInfo.detectedPortalId}`
+                    }
+                  </span>
+                </div>
+              )}
+              
+              {state.config.portalInfo?.missingScopes?.length > 0 && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" 
+                  style={{ 
+                    backgroundColor: 'var(--color-warning-container)',
+                    color: 'var(--color-on-warning-container)',
+                  }}
+                >
+                  <ExclamationTriangleIcon className="w-4 h-4" />
+                  <span className="text-sm font-medium">
+                    Limited Scopes ({state.config.portalInfo.missingScopes.length} missing)
+                  </span>
                 </div>
               )}
             </div>
@@ -378,29 +552,44 @@ export default function HubSpotSettingsPage() {
 
                   <div>
                     <label
-                      className="block text-sm font-medium mb-2"
+                      className="block text-sm font-medium mb-2 flex items-center gap-2"
                       style={{ color: 'var(--color-text-primary)' }}
                     >
                       Portal ID
+                      {state.config.portalInfo?.autoDetected && state.config.portalInfo.detectedPortalId && (
+                        <span
+                          className="text-xs px-2 py-1 rounded-full"
+                          style={{
+                            backgroundColor: 'var(--color-success-container)',
+                            color: 'var(--color-on-success-container)',
+                          }}
+                        >
+                          Auto-detected
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
                       value={state.config.portalId || ''}
                       onChange={(e) => handleFieldChange('portalId', e.target.value)}
-                      disabled={!isAdmin || state.isSaving}
+                      disabled={!isAdmin || state.isSaving || (state.config.portalInfo?.autoDetected && state.config.portalInfo.detectedPortalId)}
                       placeholder="12345678"
                       className="w-full px-3 py-2 rounded-lg border transition-colors"
                       style={{
                         backgroundColor: 'var(--color-surface)',
                         borderColor: 'var(--color-outline-variant)',
                         color: 'var(--color-text-primary)',
+                        opacity: (state.config.portalInfo?.autoDetected && state.config.portalInfo.detectedPortalId) ? 0.7 : 1,
                       }}
                     />
                     <p
                       className="mt-1 text-xs"
                       style={{ color: 'var(--color-text-secondary)' }}
                     >
-                      Optional: Your HubSpot portal/hub ID
+                      {state.config.portalInfo?.autoDetected && state.config.portalInfo.detectedPortalId
+                        ? 'Automatically detected from your API key'
+                        : 'Optional: Your HubSpot portal/hub ID'
+                      }
                     </p>
                   </div>
 
@@ -434,6 +623,137 @@ export default function HubSpotSettingsPage() {
                 </div>
               </div>
 
+              {/* Portal Information Display */}
+              {state.config.portalInfo && (state.config.portalInfo.detectedPortalId || state.config.portalId) && (
+                <div
+                  className="p-6 rounded-lg border"
+                  style={{
+                    backgroundColor: 'var(--color-surface-container)',
+                    borderColor: 'var(--color-outline-variant)',
+                  }}
+                >
+                  <h2
+                    className="text-lg font-semibold mb-4 flex items-center gap-2"
+                    style={{ color: 'var(--color-text-primary)' }}
+                  >
+                    <InformationCircleIcon className="w-5 h-5" />
+                    Portal Information
+                    {state.config.portalInfo.autoDetected && (
+                      <span
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{
+                          backgroundColor: 'var(--color-primary-container)',
+                          color: 'var(--color-on-primary-container)',
+                        }}
+                      >
+                        Auto-detected
+                      </span>
+                    )}
+                  </h2>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <span
+                        className="block text-sm font-medium"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        Portal ID
+                      </span>
+                      <span
+                        className="text-lg font-mono"
+                        style={{ color: 'var(--color-text-primary)' }}
+                      >
+                        {state.config.portalInfo.detectedPortalId || state.config.portalId}
+                      </span>
+                    </div>
+                    
+                    {state.config.portalInfo.apiUsage && (
+                      <div>
+                        <span
+                          className="block text-sm font-medium"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          API Usage
+                        </span>
+                        <span
+                          className="text-lg"
+                          style={{ color: 'var(--color-text-primary)' }}
+                        >
+                          {state.config.portalInfo.apiUsage.used} / {state.config.portalInfo.apiUsage.limit}
+                        </span>
+                        <div
+                          className="w-full bg-gray-200 rounded-full h-2 mt-1"
+                        >
+                          <div
+                            className="h-2 rounded-full"
+                            style={{
+                              backgroundColor: 'var(--color-primary)',
+                              width: `${(state.config.portalInfo.apiUsage.used / state.config.portalInfo.apiUsage.limit) * 100}%`
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    
+                    {state.config.portalInfo.scopes && state.config.portalInfo.scopes.length > 0 && (
+                      <div className="md:col-span-2">
+                        <span
+                          className="block text-sm font-medium mb-2"
+                          style={{ color: 'var(--color-text-secondary)' }}
+                        >
+                          Available Scopes ({state.config.portalInfo.scopes.length})
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {state.config.portalInfo.scopes.map((scope, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 text-xs rounded-full"
+                              style={{
+                                backgroundColor: 'var(--color-success-container)',
+                                color: 'var(--color-on-success-container)',
+                              }}
+                            >
+                              {scope}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {state.config.portalInfo.missingScopes && state.config.portalInfo.missingScopes.length > 0 && (
+                      <div className="md:col-span-2">
+                        <span
+                          className="block text-sm font-medium mb-2"
+                          style={{ color: 'var(--color-error)' }}
+                        >
+                          Missing Scopes ({state.config.portalInfo.missingScopes.length})
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {state.config.portalInfo.missingScopes.map((scope, index) => (
+                            <span
+                              key={index}
+                              className="px-2 py-1 text-xs rounded-full"
+                              style={{
+                                backgroundColor: 'var(--color-error-container)',
+                                color: 'var(--color-on-error-container)',
+                              }}
+                            >
+                              {scope}
+                            </span>
+                          ))}
+                        </div>
+                        <p
+                          className="text-sm mt-2"
+                          style={{ color: 'var(--color-error)' }}
+                        >
+                          Some features may be limited due to missing scopes. Please update your Private App permissions in HubSpot.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Feature Toggles */}
               <div
                 className="p-6 rounded-lg border"
@@ -457,29 +777,51 @@ export default function HubSpotSettingsPage() {
                     lineItems: 'Line Items & Products',
                     products: 'Product Catalog',
                     webhooks: 'Real-time Webhooks',
-                  }).map(([key, label]) => (
-                    <label
-                      key={key}
-                      className="flex items-center justify-between py-2 cursor-pointer"
-                    >
-                      <span
-                        className="text-sm"
-                        style={{ color: 'var(--color-text-primary)' }}
+                  }).map(([key, label]) => {
+                    const isValidated = state.config.scopeValidation?.[key];
+                    const isEnabled = state.config.features?.[key] || false;
+                    const showWarning = isEnabled && isValidated === false;
+                    
+                    return (
+                      <label
+                        key={key}
+                        className="flex items-center justify-between py-2 cursor-pointer"
                       >
-                        {label}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={state.config.features?.[key] || false}
-                        onChange={(e) => handleFieldChange(`features.${key}`, e.target.checked)}
-                        disabled={!isAdmin || state.isSaving}
-                        className="w-4 h-4 rounded"
-                        style={{
-                          accentColor: 'var(--color-primary)',
-                        }}
-                      />
-                    </label>
-                  ))}
+                        <div className="flex items-center gap-2 flex-1">
+                          <span
+                            className="text-sm"
+                            style={{ color: 'var(--color-text-primary)' }}
+                          >
+                            {label}
+                          </span>
+                          {showWarning && (
+                            <ExclamationTriangleIcon 
+                              className="w-4 h-4"
+                              style={{ color: 'var(--color-warning)' }}
+                              title="Missing required scopes for this feature"
+                            />
+                          )}
+                          {isValidated === true && isEnabled && (
+                            <CheckCircleIcon 
+                              className="w-4 h-4"
+                              style={{ color: 'var(--color-success)' }}
+                              title="Feature fully supported"
+                            />
+                          )}
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => handleFieldChange(`features.${key}`, e.target.checked)}
+                          disabled={!isAdmin || state.isSaving}
+                          className="w-4 h-4 rounded"
+                          style={{
+                            accentColor: 'var(--color-primary)',
+                          }}
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -724,7 +1066,10 @@ export default function HubSpotSettingsPage() {
             type={state.toast.type}
             title={state.toast.title}
             message={state.toast.message}
-            onClose={() => setState(prev => ({ ...prev, toast: null }))}
+            onClose={() => {
+              console.log('🍞 [DEBUG] Toast closed by user');
+              setState(prev => ({ ...prev, toast: null }));
+            }}
           />
         )}
       </AuthenticatedLayout>

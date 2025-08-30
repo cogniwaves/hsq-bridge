@@ -39,7 +39,23 @@ export function ConfigurationCard({
   const [actionHover, setActionHover] = useState<string | null>(null);
 
   const platformInfo = getPlatformInfo(platform);
-  const healthInfo = getHealthStatusInfo(status.healthStatus);
+  
+  // Provide default values for status if undefined
+  const safeStatus = status || {
+    platform,
+    configured: false,
+    connected: false,
+    healthy: false,
+    message: 'Status unavailable'
+  };
+  
+  // Map ConnectionStatus to HealthStatus
+  const healthStatus: 'HEALTHY' | 'DEGRADED' | 'UNHEALTHY' | 'UNKNOWN' = 
+    !safeStatus.configured ? 'UNKNOWN' :
+    safeStatus.healthy && safeStatus.connected ? 'HEALTHY' :
+    safeStatus.connected ? 'DEGRADED' : 'UNHEALTHY';
+  
+  const healthInfo = getHealthStatusInfo(healthStatus);
 
   // Theme colors
   const colors = theme.colors;
@@ -75,7 +91,7 @@ export function ConfigurationCard({
     borderRadius: '50%',
     backgroundColor: healthInfo.color,
     boxShadow: `0 0 0 2px ${isDark ? colors.surface : colors.surface}`,
-    animation: status.healthStatus === 'DEGRADED' ? 'pulse 2s infinite' : undefined,
+    animation: healthStatus === 'DEGRADED' ? 'pulse 2s infinite' : undefined,
   };
 
   // Platform header styles
@@ -190,7 +206,7 @@ export function ConfigurationCard({
 
   // Status icon component
   const StatusIcon = () => {
-    switch (status.healthStatus) {
+    switch (healthStatus) {
       case 'HEALTHY':
         return <CheckCircleIcon style={statusIconStyle} />;
       case 'DEGRADED':
@@ -208,12 +224,12 @@ export function ConfigurationCard({
       style={cardStyle}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={!status.configured ? onConfigure : undefined}
+      onClick={!safeStatus.configured ? onConfigure : undefined}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
-          if (!status.configured) onConfigure();
+          if (!safeStatus.configured) onConfigure();
         }
       }}
       aria-label={`${title} configuration card`}
@@ -269,43 +285,43 @@ export function ConfigurationCard({
           <StatusIcon />
           <span style={statusTextStyle}>Status</span>
           <span style={statusValueStyle}>
-            {status.configured ? healthInfo.label : 'Not configured'}
+            {safeStatus.configured ? healthInfo.label : 'Not configured'}
           </span>
         </div>
 
-        {status.configured && (
+        {safeStatus.configured && (
           <>
             <div style={statusRowStyle}>
-              <div style={{ ...statusIconStyle, backgroundColor: status.connected ? '#10b981' : '#ef4444', borderRadius: '50%' }} />
+              <div style={{ ...statusIconStyle, backgroundColor: safeStatus.connected ? '#10b981' : '#ef4444', borderRadius: '50%' }} />
               <span style={statusTextStyle}>Connection</span>
               <span style={statusValueStyle}>
-                {status.connected ? 'Connected' : 'Disconnected'}
+                {safeStatus.connected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
 
-            {status.lastCheck && (
+            {safeStatus.lastCheck && (
               <div style={statusRowStyle}>
                 <ClockIcon style={statusIconStyle} />
                 <span style={statusTextStyle}>Last Check</span>
                 <span style={statusValueStyle}>
-                  {formatRelativeTime(status.lastCheck)}
+                  {formatRelativeTime(safeStatus.lastCheck)}
                 </span>
               </div>
             )}
           </>
         )}
 
-        {status.message && (
+        {safeStatus.message && (
           <div style={{
             ...theme.typography?.bodySmall,
-            color: status.healthStatus === 'HEALTHY' ? colors.onSurfaceVariant : healthInfo.color,
+            color: healthStatus === 'HEALTHY' ? colors.onSurfaceVariant : healthInfo.color,
             backgroundColor: healthInfo.bgColor,
             padding: '8px 12px',
             borderRadius: '6px',
             marginTop: theme.spacing?.component?.sm || '8px',
             border: `1px solid ${healthInfo.color}20`,
           }}>
-            {status.message}
+            {safeStatus.message}
           </div>
         )}
       </div>
@@ -313,7 +329,7 @@ export function ConfigurationCard({
       {/* Actions Section */}
       {showActions && (
         <div style={actionsStyle}>
-          {!status.configured ? (
+          {!safeStatus.configured ? (
             <button
               style={actionButtonStyle('configure', 'primary')}
               onClick={(e) => {

@@ -73,6 +73,13 @@ export function ConnectionTester({
   const runTest = async () => {
     if (!configuration || isTesting || Object.keys(configuration).length === 0) return;
 
+    console.log('🧪 [DEBUG] ConnectionTester runTest started:', {
+      platform,
+      hasConfig: !!configuration,
+      configKeys: Object.keys(configuration),
+      timestamp: new Date().toISOString()
+    });
+
     setIsTesting(true);
     setCurrentStep('Initializing connection test...');
 
@@ -95,6 +102,13 @@ export function ConnectionTester({
       }
 
       const result = await onTest(configuration);
+      
+      console.log('🔬 [DEBUG] ConnectionTester received test result:', {
+        platform,
+        result,
+        timestamp: new Date().toISOString()
+      });
+      
       setLastResult(result);
 
       // Add to history
@@ -342,6 +356,62 @@ export function ConnectionTester({
                 </span>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Enhanced Error Details Section */}
+        {!lastResult.success && lastResult.details && (
+          <div
+            style={{
+              marginTop: theme.spacing?.component?.md || '16px',
+              padding: theme.spacing?.component?.lg || '16px',
+              backgroundColor: isDark ? '#2d1b1b' : '#fef2f2',
+              border: `1px solid ${colors.error}`,
+              borderRadius: '6px',
+            }}
+          >
+            <div
+              style={{
+                ...theme.typography?.labelMedium,
+                color: colors.error,
+                fontWeight: 600,
+                marginBottom: theme.spacing?.component?.sm || '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <ExclamationTriangleIcon style={{ width: '16px', height: '16px' }} />
+              Connection Error Details
+            </div>
+            
+            {lastResult.details.debugInfo && (
+              <div style={{ 
+                ...theme.typography?.bodySmall,
+                color: colors.onErrorContainer,
+                fontFamily: 'monospace',
+                backgroundColor: isDark ? '#1a0f0f' : '#fee2e2',
+                padding: '8px',
+                borderRadius: '4px',
+                marginTop: '8px'
+              }}>
+                <div><strong>Error Type:</strong> {lastResult.details.debugInfo.errorType}</div>
+                <div><strong>API Key Status:</strong> {lastResult.details.debugInfo.hasApiKey ? 'Present' : 'Missing'}</div>
+                {lastResult.details.debugInfo.hasApiKey && (
+                  <div><strong>API Key Length:</strong> {lastResult.details.debugInfo.apiKeyLength} chars</div>
+                )}
+                <div><strong>Timestamp:</strong> {lastResult.details.timestamp}</div>
+              </div>
+            )}
+
+            <div style={{ 
+              ...theme.typography?.bodySmall,
+              color: colors.onErrorContainer,
+              marginTop: '8px',
+              fontStyle: 'italic'
+            }}>
+              💡 Tip: Check your API key format and permissions. HubSpot API keys should start with "pat-na"
+            </div>
           </div>
         )}
       </div>

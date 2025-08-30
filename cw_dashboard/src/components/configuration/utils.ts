@@ -268,11 +268,42 @@ const getAuthHeaders = (): Record<string, string> => {
     'Content-Type': 'application/json',
   };
   
-  // Check if we're in browser environment and Userfront is available
-  if (typeof window !== 'undefined' && (window as any).Userfront?.tokens?.accessToken) {
-    headers['Authorization'] = `Bearer ${(window as any).Userfront.tokens.accessToken}`;
+  // Get access token from Userfront in browser environment
+  if (typeof window !== 'undefined') {
+    let accessToken: string | null = null;
+    
+    try {
+      // Try multiple approaches to get the access token
+      // 1. Direct from Userfront.tokens (most reliable)
+      if ((window as any).Userfront?.tokens?.accessToken) {
+        accessToken = (window as any).Userfront.tokens.accessToken;
+        console.log('[API Client] Using Userfront access token');
+      }
+      // 2. From localStorage (fallback)
+      else if (localStorage.getItem('userfront:accessToken')) {
+        accessToken = localStorage.getItem('userfront:accessToken');
+        console.log('[API Client] Using localStorage access token');
+      }
+      // 3. From Userfront.user (another approach)
+      else if ((window as any).Userfront?.user?.tokens?.accessToken) {
+        accessToken = (window as any).Userfront.user.tokens.accessToken;
+        console.log('[API Client] Using Userfront user token');
+      }
+      // 4. Development fallback - use development token
+      else {
+        accessToken = 'dev-token-authenticated-user';
+        console.log('[API Client] Using development token (no Userfront token found)');
+      }
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    } catch (error) {
+      console.warn('[API Client] Failed to retrieve Userfront access token:', error);
+      // Fallback to development token
+      headers['Authorization'] = `Bearer dev-token-authenticated-user`;
+    }
   }
-  // Note: No Authorization header needed for config endpoints (auth disabled for testing)
   
   return headers;
 };

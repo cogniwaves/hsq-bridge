@@ -4,7 +4,7 @@
  * Implements JWT authentication, tenant isolation, and role-based access control
  */
 
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { Platform, TenantRole, Prisma, PrismaClient } from '@prisma/client';
 import * as crypto from 'crypto';
 import { asyncHandler } from '../utils/errorHandler';
@@ -59,10 +59,32 @@ const WEBHOOK_URL_PATTERN = /^https?:\/\/.+$/;
 
 export const configRoutes = Router();
 
-// Apply JWT authentication to all routes - TEMPORARILY DISABLED FOR TESTING
-// configRoutes.use(jwtAuth as any);
-// configRoutes.use(requireTenant as any);  
-// configRoutes.use(tenantIsolation as any);
+// Apply JWT authentication to all routes except test endpoints
+configRoutes.use((req: ConfigRequest, res: Response, next: NextFunction) => {
+  // Skip authentication for test endpoints during development
+  if (req.path.startsWith('/test-')) {
+    return next();
+  }
+  return jwtAuth(req as any, res, next);
+});
+
+// Apply tenant context for authenticated routes
+configRoutes.use((req: ConfigRequest, res: Response, next: NextFunction) => {
+  // Skip tenant requirements for test endpoints
+  if (req.path.startsWith('/test-') || !req.auth) {
+    return next();
+  }
+  return requireTenant(req as any, res, next);
+});
+
+// Apply tenant isolation for authenticated routes
+configRoutes.use((req: ConfigRequest, res: Response, next: NextFunction) => {
+  // Skip tenant isolation for test endpoints
+  if (req.path.startsWith('/test-') || !req.auth) {
+    return next();
+  }
+  return tenantIsolation(req as any, res, next);
+});
 
 // Apply rate limiting to configuration endpoints
 const configRateLimit = perUserRateLimit(20, 5); // 20 requests per 5 minutes
@@ -273,14 +295,9 @@ configRoutes.get('/status',
  * Get HubSpot configuration status for authenticated user
  */
 configRoutes.get('/hubspot',
-  // Temporarily use optional auth for testing - TODO: implement proper JWT auth
-  // jwtAuth as any,
-  // requireTenant as any,
-  // tenantIsolation as any,
   asyncHandler(async (req: ConfigRequest, res: Response) => {
-    // Use default tenant for testing - TODO: implement proper tenant resolution
-    const tenantId = req.tenant?.id || 'default';
-    const userId = req.auth?.userId || 'test-user';
+    const tenantId = req.tenant?.id;
+    const userId = req.auth?.userId;
     
     try {
       const configManager = configurationManager(prisma);
@@ -359,17 +376,13 @@ configRoutes.get('/hubspot',
  */
 configRoutes.post('/hubspot',
   configRateLimit as any,
-  // Temporarily disable strict auth for testing - TODO: implement proper JWT auth
-  // jwtAuth as any,
-  // requireTenant as any,
-  // tenantIsolation as any,
-  // auditLog('CONFIG_HUBSPOT_UPDATE') as any,
+  requireTenantRole(TenantRole.ADMIN, TenantRole.OWNER) as any,
+  auditLog('CONFIG_HUBSPOT_UPDATE') as any,
   asyncHandler(async (req: ConfigRequest, res: Response) => {
-    // Use default values for testing - TODO: implement proper auth resolution
-    const tenantId = req.tenant?.id || 'default';
-    const userId = req.auth?.userId || 'test-user';
-    const userEmail = req.auth?.email || 'test@example.com';
-    const userRole = req.membership?.role || 'admin';
+    const tenantId = req.tenant?.id;
+    const userId = req.auth?.userId;
+    const userEmail = req.auth?.email;
+    const userRole = req.membership?.role;
     
     const { 
       apiKey, 

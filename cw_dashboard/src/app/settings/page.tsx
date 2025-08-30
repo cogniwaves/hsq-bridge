@@ -53,8 +53,9 @@ interface SettingsPageState {
   } | null;
 }
 
-// API client
-const api = createAPIClient('/api/config');
+// API client - use full API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:13000';
+const api = createAPIClient(`${API_BASE_URL}/api/config`);
 
 export default function SettingsPage() {
   const router = useRouter();
