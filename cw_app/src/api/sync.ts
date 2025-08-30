@@ -26,7 +26,35 @@ syncRoutes.get('/status', asyncHandler(async (req, res) => {
     QUICKBOOKS: recentLogs.filter(log => log.platform === 'QUICKBOOKS').length,
   };
 
+  // Determine sync status for each platform
+  const hubspotLogs = recentLogs.filter(log => log.platform === 'HUBSPOT').slice(0, 10);
+  const stripeLogs = recentLogs.filter(log => log.platform === 'STRIPE').slice(0, 10);
+  const quickbooksLogs = recentLogs.filter(log => log.platform === 'QUICKBOOKS').slice(0, 10);
+
+  const getStatus = (logs: any[]) => {
+    if (logs.length === 0) return 'idle';
+    const recent = logs[0];
+    if (recent.status === 'IN_PROGRESS' || recent.status === 'PENDING') return 'active';
+    if (recent.status === 'FAILED' || recent.status === 'RETRYING') return 'error';
+    return 'idle';
+  };
+
   res.json({
+    hubspot: {
+      status: getStatus(hubspotLogs),
+      lastSync: hubspotLogs[0]?.createdAt || null,
+      count: platformStats.HUBSPOT
+    },
+    stripe: {
+      status: getStatus(stripeLogs),
+      lastSync: stripeLogs[0]?.createdAt || null,
+      count: platformStats.STRIPE
+    },
+    quickbooks: {
+      status: getStatus(quickbooksLogs),
+      lastSync: quickbooksLogs[0]?.createdAt || null,
+      count: platformStats.QUICKBOOKS
+    },
     stats,
     platformStats,
     lastSync: recentLogs[0]?.createdAt || null

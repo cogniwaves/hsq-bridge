@@ -147,6 +147,68 @@ dashboardRoutes.get('/reconciliation', asyncHandler(async (req, res) => {
   });
 }));
 
+// Dashboard statistics for navigation badges and overview
+dashboardRoutes.get('/stats', asyncHandler(async (req, res) => {
+  try {
+    // Get basic counts with fallbacks for missing tables
+    let pendingInvoices = 0;
+    let recentPayments = 0; 
+    let failedWebhooks = 0;
+    let pendingTransfers = 0;
+
+    try {
+      pendingInvoices = await prisma.invoiceMapping.count({
+        where: { status: { in: ['SENT', 'OVERDUE'] } }
+      });
+    } catch (error) {
+      console.log('Invoice mapping table not found or query failed:', error.message);
+    }
+
+    try {
+      recentPayments = await prisma.paymentMapping.count({
+        where: {
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        }
+      });
+    } catch (error) {
+      console.log('Payment mapping table not found or query failed:', error.message);
+    }
+
+    try {
+      failedWebhooks = await prisma.webhookEvent.count({
+        where: {
+          status: 'FAILED',
+          createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        }
+      });
+    } catch (error) {
+      console.log('Webhook event table not found or query failed:', error.message);
+    }
+
+    try {
+      pendingTransfers = await prisma.quickbooksTransferQueue.count({
+        where: { status: 'PENDING' }
+      });
+    } catch (error) {
+      console.log('QuickBooks transfer queue table not found or query failed:', error.message);
+    }
+
+    res.json({
+      pendingInvoices,
+      recentPayments,
+      failedWebhooks,
+      pendingTransfers
+    });
+  } catch (error) {
+    console.error('Dashboard stats endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve dashboard statistics',
+      details: error.message
+    });
+  }
+}));
+
 // System health metrics for dashboard
 dashboardRoutes.get('/health', asyncHandler(async (req, res) => {
   const now = new Date();

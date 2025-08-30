@@ -18,7 +18,7 @@ let tokenScheduler: TokenRefreshScheduler | null = null;
 /**
  * Initialize token management system
  */
-async function initializeTokenManagement(): Promise<void> {
+export async function initializeTokenManagement(): Promise<void> {
   if (tokenScheduler) return;
 
   try {
@@ -57,8 +57,7 @@ async function initializeTokenManagement(): Promise<void> {
   }
 }
 
-// Initialize on module load
-initializeTokenManagement().catch(logger.error);
+// Remove automatic initialization - will be called from index.ts after config is loaded
 
 /**
  * GET /api/tokens/status

@@ -666,6 +666,114 @@ class HubSpotClient {
       return false;
     }
   }
+
+  /**
+   * Test connection with a specific API key
+   * Used for validating credentials before saving configuration
+   */
+  async testConnectionWithKey(apiKey: string): Promise<{
+    success: boolean;
+    message?: string;
+    portalId?: string;
+    scopes?: string[];
+    apiCalls?: {
+      used: number;
+      limit: number;
+    };
+  }> {
+    console.log('🔑 [DEBUG] testConnectionWithKey called:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length,
+      apiKeyPrefix: apiKey?.substring(0, 8) + '...',
+      timestamp: new Date().toISOString()
+    });
+
+    try {
+      // Create a temporary client with the provided API key
+      const testClient = axios.create({
+        baseURL: 'https://api.hubapi.com',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: this.timeout
+      });
+
+      // Test the connection with account info endpoint
+      const response = await testClient.get('/account-info/v3/details');
+      
+      // Extract portal ID from the response
+      const portalId = response.data?.portalId || response.data?.hub_id;
+      
+      // Try to get access token info for scopes
+      let scopes: string[] = [];
+      let apiCalls = { used: 0, limit: 0 };
+      
+      try {
+        const tokenInfo = await testClient.get('/oauth/v1/access-tokens/' + apiKey.substring(7, 43));
+        scopes = tokenInfo.data?.scopes || [];
+      } catch {
+        // Token info endpoint may not be available for all API keys
+        // Try to extract from headers if available
+        if (response.headers['x-hubspot-api-usage']) {
+          const usage = response.headers['x-hubspot-api-usage'];
+          const match = usage.match(/(\d+)\/(\d+)/);
+          if (match) {
+            apiCalls = {
+              used: parseInt(match[1]),
+              limit: parseInt(match[2])
+            };
+          }
+        }
+      }
+
+      logger.info('HubSpot API key validation successful', { portalId });
+      
+      return {
+        success: true,
+        message: 'Connection successful',
+        portalId: portalId?.toString(),
+        scopes,
+        apiCalls
+      };
+    } catch (error: any) {
+      console.error('🔴 [DEBUG] testConnectionWithKey error:', {
+        error,
+        errorMessage: error.message,
+        errorStatus: error.response?.status,
+        errorData: error.response?.data,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.error('HubSpot API key validation failed:', error.response?.data || error.message);
+      
+      let message = 'Connection failed';
+      
+      if (error.response?.status === 401) {
+        message = 'Invalid API key - authentication failed';
+      } else if (error.response?.status === 403) {
+        message = 'API key lacks required permissions';
+      } else if (error.response?.status === 429) {
+        message = 'Rate limit exceeded - too many requests';
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+        message = 'Unable to connect to HubSpot API';
+      } else if (error.response?.data?.message) {
+        message = error.response.data.message;
+      }
+      
+      console.log('🔴 [DEBUG] testConnectionWithKey final result:', {
+        success: false,
+        message,
+        timestamp: new Date().toISOString()
+      });
+      
+      return {
+        success: false,
+        message
+      };
+    }
+  }
 }
 
 // Instance singleton

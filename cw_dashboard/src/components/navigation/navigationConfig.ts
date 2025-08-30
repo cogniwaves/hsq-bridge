@@ -130,21 +130,47 @@ const settingsNavigationItems: NavigationItem[] = [
     label: 'Settings',
     icon: Cog6ToothIcon,
     href: '/settings',
-    description: 'Application settings',
+    description: 'Integration configuration dashboard',
     children: [
       {
-        id: 'settings-general',
-        label: 'General',
-        icon: Cog6ToothIcon,
-        href: '/settings/general',
-        description: 'General application settings',
+        id: 'settings-hubspot',
+        label: 'HubSpot',
+        icon: BuildingOffice2Icon,
+        href: '/settings/hubspot',
+        description: 'Configure HubSpot integration',
+        badge: {
+          text: 'API',
+          color: 'info',
+        },
       },
       {
-        id: 'settings-integrations',
-        label: 'Integrations',
-        icon: CloudArrowUpIcon,
-        href: '/settings/integrations',
-        description: 'Configure integrations',
+        id: 'settings-stripe',
+        label: 'Stripe',
+        icon: CreditCardIcon,
+        href: '/settings/stripe',
+        description: 'Configure Stripe integration',
+        badge: {
+          text: 'API',
+          color: 'info',
+        },
+      },
+      {
+        id: 'settings-quickbooks',
+        label: 'QuickBooks',
+        icon: ChartBarIcon,
+        href: '/settings/quickbooks',
+        description: 'Configure QuickBooks OAuth',
+        badge: {
+          text: 'OAuth',
+          color: 'warning',
+        },
+      },
+      {
+        id: 'settings-webhooks',
+        label: 'Webhooks',
+        icon: CloudArrowDownIcon,
+        href: '/settings/webhooks',
+        description: 'Webhook configuration',
       },
       {
         id: 'settings-notifications',
@@ -313,6 +339,70 @@ export function updateNavigationBadges(updates: Record<string, number | undefine
       item.badge.count = count;
     }
   });
+}
+
+// Helper function to update configuration status badges
+export function updateConfigurationBadges(configStatus: {
+  hubspot?: { status: 'healthy' | 'warning' | 'error' | 'disconnected' };
+  stripe?: { status: 'healthy' | 'warning' | 'error' | 'disconnected' };
+  quickbooks?: { status: 'healthy' | 'warning' | 'error' | 'disconnected' };
+}) {
+  // Update HubSpot badge
+  const hubspotItem = findNavigationItem('settings-hubspot');
+  if (hubspotItem && hubspotItem.badge) {
+    const status = configStatus.hubspot?.status || 'disconnected';
+    switch (status) {
+      case 'healthy':
+        hubspotItem.badge = { text: '✓', color: 'success' };
+        break;
+      case 'warning':
+        hubspotItem.badge = { text: '!', color: 'warning' };
+        break;
+      case 'error':
+        hubspotItem.badge = { text: '✗', color: 'error' };
+        break;
+      default:
+        hubspotItem.badge = { text: 'API', color: 'info' };
+    }
+  }
+
+  // Update Stripe badge
+  const stripeItem = findNavigationItem('settings-stripe');
+  if (stripeItem && stripeItem.badge) {
+    const status = configStatus.stripe?.status || 'disconnected';
+    switch (status) {
+      case 'healthy':
+        stripeItem.badge = { text: '✓', color: 'success' };
+        break;
+      case 'warning':
+        stripeItem.badge = { text: '!', color: 'warning' };
+        break;
+      case 'error':
+        stripeItem.badge = { text: '✗', color: 'error' };
+        break;
+      default:
+        stripeItem.badge = { text: 'API', color: 'info' };
+    }
+  }
+
+  // Update QuickBooks badge
+  const quickbooksItem = findNavigationItem('settings-quickbooks');
+  if (quickbooksItem && quickbooksItem.badge) {
+    const status = configStatus.quickbooks?.status || 'disconnected';
+    switch (status) {
+      case 'healthy':
+        quickbooksItem.badge = { text: '✓', color: 'success' };
+        break;
+      case 'warning':
+        quickbooksItem.badge = { text: '!', color: 'warning' };
+        break;
+      case 'error':
+        quickbooksItem.badge = { text: '✗', color: 'error' };
+        break;
+      default:
+        quickbooksItem.badge = { text: 'OAuth', color: 'warning' };
+    }
+  }
 }
 
 // Helper function to find a navigation item by ID

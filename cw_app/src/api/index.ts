@@ -18,6 +18,8 @@ import { tokenManagementRoutes } from './tokenManagement';
 import { userAuthRoutes } from './userAuth';
 // import { tenantRoutes } from './tenants';
 // import { invitationRoutes } from './invitations';
+import { configRoutes } from './config';
+import { notificationRoutes } from './notifications';
 import { ApiHandler } from '../types/api';
 import { flexibleAuth, requirePermission, logAuthenticatedRequest } from '../middleware/auth';
 import { rateLimits } from '../middleware/rateLimiting';
@@ -79,6 +81,19 @@ apiRoutes.get('/', rateLimits.public, ((_req, res) => {
       revokeInvitation: '/api/invitations/:id (JWT + Admin/Owner)',
       invitationInfo: '/api/invitations/:token/info (public)',
       
+      // Configuration Management endpoints
+      configStatus: '/api/config/status (JWT required)',
+      configHubSpotGet: '/api/config/hubspot (JWT required)',
+      configHubSpotPost: '/api/config/hubspot (JWT + Admin/Owner)',
+      configStripeGet: '/api/config/stripe (JWT required)',
+      configStripePost: '/api/config/stripe (JWT + Admin/Owner)',
+      configQuickBooksGet: '/api/config/quickbooks (JWT required)',
+      configQuickBooksInitiate: '/api/config/quickbooks/initiate (JWT + Admin/Owner)',
+      configTestConnections: '/api/config/test-connections (JWT required)',
+      configWebhooksGet: '/api/config/webhooks (JWT required)',
+      configWebhooksPost: '/api/config/webhooks (JWT + Admin/Owner)',
+      configAuditLogs: '/api/config/audit-logs (JWT + Admin/Owner)',
+      
       // Core business endpoints
       invoices: '/api/invoices (auth required)',
       payments: '/api/payments (auth required)',
@@ -110,20 +125,24 @@ apiRoutes.get('/', rateLimits.public, ((_req, res) => {
     },
     features: [
       'Multi-Tenant Authentication with JWT Bearer Tokens',
-      'Role-Based Access Control (Owner, Admin, Member)',
+      'Role-Based Access Control (Owner, Admin, Member, Viewer)',
+      'Secure Configuration Management with Encrypted Storage',
+      'Platform Connection Testing and Health Monitoring',
+      'Audit Logging for Configuration Changes',
       'Team Invitation System with Email Notifications',
       'Secure Password Reset and Email Verification',
       'Tenant Management and Switching',
       'HubSpot Invoice Extraction with Line Items & Taxes',
       'Multi-currency Support (CAD, USD, etc.)',
-      'Real-time Webhook Processing',
+      'Real-time Webhook Processing with Circuit Breakers',
       'Enhanced Tax Breakdown (TPS, TVQ, GST, VAT)',
       'Business Intelligence SQL Analytics',
       'Multi-Entity Incremental Synchronization',
       'QuickBooks Transfer Queue with Human-in-the-Loop Validation',
       'Cascade Impact Detection for Entity Dependencies',
       'Comprehensive Testing Framework',
-      'API Authentication & Rate Limiting'
+      'API Authentication & Rate Limiting',
+      'Webhook Configuration with Signature Verification'
     ],
     lastUpdated: new Date().toISOString()
   });
@@ -145,6 +164,10 @@ apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
 // apiRoutes.use('/tenants', tenantRoutes); // Tenant management endpoints  
 // apiRoutes.use('/invitations', invitationRoutes); // Invitation system endpoints
 
+
+// Configuration Management Routes (JWT authentication handled internally)
+apiRoutes.use('/config', configRoutes); // Configuration management endpoints
+
 // Authentication middleware pour toutes les routes protégées legacy
 apiRoutes.use(flexibleAuth);
 apiRoutes.use(logAuthenticatedRequest);
@@ -162,6 +185,7 @@ apiRoutes.use('/dashboard', rateLimits.read, requirePermission('read'), dashboar
 apiRoutes.use('/dashboard-v2', rateLimits.read, requirePermission('read'), dashboardEnhancedRoutes);
 apiRoutes.use('/metrics', rateLimits.read, requirePermission('read'), metricsRoutes);
 apiRoutes.use('/webhooks', rateLimits.webhook, webhookRoutes); // Webhooks ont leur propre auth
+apiRoutes.use('/notifications', rateLimits.api, requirePermission('read'), notificationRoutes);
 
 // Development and testing routes (authenticated)
 apiRoutes.use('/test', rateLimits.api, requirePermission('read'), testRoutes);

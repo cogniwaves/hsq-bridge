@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useUserfrontAuth } from '../contexts/UserfrontAuthContext';
 import { updateNavigationBadges } from '../components/navigation/navigationConfig';
+import { createAPIClient } from '../components/configuration/utils';
 
 export interface NavigationStats {
   pendingInvoices: number;
@@ -22,6 +23,10 @@ export interface NavigationStats {
 
 export function useNavigationData() {
   const { user, isAuthenticated } = useUserfrontAuth();
+  
+  // Create API client with proper base URL
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:13000';
+  const apiClient = createAPIClient(`${API_BASE_URL}/api`);
   const [stats, setStats] = useState<NavigationStats>({
     pendingInvoices: 0,
     recentPayments: 0,
@@ -47,31 +52,16 @@ export function useNavigationData() {
 
       // Fetch from multiple endpoints in parallel
       const [dashboardResponse, syncResponse, notificationResponse] = await Promise.allSettled([
-        fetch('/api/dashboard/stats', {
-          headers: {
-            'Authorization': `Bearer ${user.accessToken || ''}`,
-            'Content-Type': 'application/json',
-          },
-        }),
-        fetch('/api/sync/status', {
-          headers: {
-            'Authorization': `Bearer ${user.accessToken || ''}`,
-            'Content-Type': 'application/json',
-          },
-        }),
-        fetch('/api/notifications/unread-count', {
-          headers: {
-            'Authorization': `Bearer ${user.accessToken || ''}`,
-            'Content-Type': 'application/json',
-          },
-        }),
+        apiClient.get('/dashboard/stats'),
+        apiClient.get('/sync/status'),
+        apiClient.get('/notifications/unread-count'),
       ]);
 
       let newStats: NavigationStats = { ...stats };
 
       // Process dashboard stats
-      if (dashboardResponse.status === 'fulfilled' && dashboardResponse.value.ok) {
-        const dashboardData = await dashboardResponse.value.json();
+      if (dashboardResponse.status === 'fulfilled') {
+        const dashboardData = dashboardResponse.value;
         newStats = {
           ...newStats,
           pendingInvoices: dashboardData.pendingInvoices || 0,
@@ -82,8 +72,8 @@ export function useNavigationData() {
       }
 
       // Process sync status
-      if (syncResponse.status === 'fulfilled' && syncResponse.value.ok) {
-        const syncData = await syncResponse.value.json();
+      if (syncResponse.status === 'fulfilled') {
+        const syncData = syncResponse.value;
         newStats.syncStatus = {
           hubspot: syncData.hubspot?.status || 'idle',
           stripe: syncData.stripe?.status || 'idle',
@@ -92,8 +82,8 @@ export function useNavigationData() {
       }
 
       // Process notification count
-      if (notificationResponse.status === 'fulfilled' && notificationResponse.value.ok) {
-        const notificationData = await notificationResponse.value.json();
+      if (notificationResponse.status === 'fulfilled') {
+        const notificationData = notificationResponse.value;
         newStats.unreadNotifications = notificationData.count || 0;
       }
 
@@ -237,30 +227,22 @@ export function useNavigationData() {
     if (!isAuthenticated || !user) return;
 
     try {
-      const response = await fetch(`/api/notifications/${notificationId}/read`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${user.accessToken || ''}`,
-          'Content-Type': 'application/json',
-        },
+      await apiClient.post(`/notifications/${notificationId}/read`);
+
+      // Update local state
+      setStats(prevStats => ({
+        ...prevStats,
+        unreadNotifications: Math.max(0, prevStats.unreadNotifications - 1),
+      }));
+
+      // Update navigation badge
+      updateNavigationBadges({
+        'notifications': Math.max(0, stats.unreadNotifications - 1),
       });
-
-      if (response.ok) {
-        // Update local state
-        setStats(prevStats => ({
-          ...prevStats,
-          unreadNotifications: Math.max(0, prevStats.unreadNotifications - 1),
-        }));
-
-        // Update navigation badge
-        updateNavigationBadges({
-          'notifications': Math.max(0, stats.unreadNotifications - 1),
-        });
-      }
     } catch (err) {
       console.error('Failed to mark notification as read:', err);
     }
-  }, [isAuthenticated, user, stats.unreadNotifications]);
+  }, [isAuthenticated, user, stats.unreadNotifications, apiClient]);
 
   return {
     stats,

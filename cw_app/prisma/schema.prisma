@@ -490,7 +490,7 @@ model UserSession {
 
 model OAuthToken {
   id                    String    @id @default(uuid())
-  provider              String
+  provider              String    // quickbooks, hubspot_oauth, stripe_oauth
   tenantId              String?   @map("tenant_id")
   accessToken           String    @map("access_token")
   refreshToken          String?   @map("refresh_token")
@@ -498,14 +498,37 @@ model OAuthToken {
   expiresAt             DateTime  @map("expires_at")
   refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
   scope                 String?
-  realmId               String?   @map("realm_id")
-  companyId             String?   @map("company_id")
+  realmId               String?   @map("realm_id") // QuickBooks specific
+  companyId             String?   @map("company_id") // QuickBooks specific
+  
+  // HubSpot OAuth specific fields
+  hubspotPortalId       String?   @map("hubspot_portal_id")
+  hubspotUserId         String?   @map("hubspot_user_id")
+  hubspotAppId          String?   @map("hubspot_app_id")
+  
+  // Stripe OAuth specific fields
+  stripeAccountId       String?   @map("stripe_account_id")
+  stripeUserId          String?   @map("stripe_user_id")
+  stripeLivemode        Boolean   @default(false) @map("stripe_livemode")
+  
+  // Token management fields
   lastRefreshedAt       DateTime? @map("last_refreshed_at")
   refreshCount          Int       @default(0) @map("refresh_count")
   failedRefreshCount    Int       @default(0) @map("failed_refresh_count")
   lastRefreshError      String?   @map("last_refresh_error")
+  isActive              Boolean   @default(true) @map("is_active")
+  revokedAt             DateTime? @map("revoked_at")
+  revokedBy             String?   @map("revoked_by")
+  revokedReason         String?   @map("revoked_reason")
+  
+  // Encryption fields
   encryptionMethod      String    @default("AES-256-GCM") @map("encryption_method")
   encryptionIV          String?   @map("encryption_iv")
+  encryptionKeyVersion  Int       @default(1) @map("encryption_key_version")
+  
+  // Metadata
+  metadata              Json?     // Additional provider-specific data
+  createdBy             String?   @map("created_by")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
   
@@ -516,6 +539,9 @@ model OAuthToken {
   @@unique([provider, tenantId])
   @@index([provider, expiresAt])
   @@index([tenantId])
+  @@index([tenantId, isActive])
+  @@index([stripeAccountId])
+  @@index([hubspotPortalId])
   @@map("oauth_tokens")
 }
 
@@ -543,6 +569,273 @@ model TokenRefreshLog {
   @@index([provider, tenantId])
   @@index([status, attemptedAt])
   @@map("token_refresh_logs")
+}
+
+// ============================================================================
+// INTEGRATION CONFIGURATION MODELS (Extended Schema)
+// ============================================================================
+
+model IntegrationConfig {
+  id                    String              @id @default(uuid())
+  tenantId              String              @map("tenant_id")
+  platform              Platform            // HUBSPOT, STRIPE, QUICKBOOKS
+  configType            ConfigType          @map("config_type") // API_KEY, WEBHOOK, OAUTH, SETTINGS
+  isActive              Boolean             @default(true) @map("is_active")
+  isPrimary             Boolean             @default(false) @map("is_primary") // Primary config for the platform
+  
+  // API Configuration (for non-OAuth integrations)
+  apiKey                String?             @map("api_key") // Encrypted
+  apiSecret             String?             @map("api_secret") // Encrypted
+  apiEndpoint           String?             @map("api_endpoint") // Custom API endpoint
+  apiVersion            String?             @map("api_version")
+  
+  // Platform-specific identifiers
+  hubspotPortalId       String?             @map("hubspot_portal_id")
+  hubspotAccountId      String?             @map("hubspot_account_id")
+  stripeAccountId       String?             @map("stripe_account_id")
+  quickbooksCompanyId   String?             @map("quickbooks_company_id")
+  
+  // Connection settings
+  environment           String              @default("production") // production, sandbox, test
+  rateLimitPerMinute    Int?                @map("rate_limit_per_minute")
+  timeoutMs             Int                 @default(30000) @map("timeout_ms")
+  maxRetries            Int                 @default(3) @map("max_retries")
+  
+  // Sync configuration
+  syncEnabled           Boolean             @default(true) @map("sync_enabled")
+  syncInterval          Int?                @map("sync_interval") // Minutes between syncs
+  lastSyncAt            DateTime?           @map("last_sync_at")
+  nextSyncAt            DateTime?           @map("next_sync_at")
+  syncDirection         SyncDirection       @default(BIDIRECTIONAL) @map("sync_direction")
+  
+  // Feature flags
+  features              Json?               // Platform-specific feature toggles
+  mappingRules          Json?               @map("mapping_rules") // Field mapping configuration
+  filterRules           Json?               @map("filter_rules") // Data filtering rules
+  transformRules        Json?               @map("transform_rules") // Data transformation rules
+  
+  // Validation and health
+  lastHealthCheckAt     DateTime?           @map("last_health_check_at")
+  healthStatus          HealthStatus        @default(UNKNOWN) @map("health_status")
+  healthMessage         String?             @map("health_message")
+  validatedAt           DateTime?           @map("validated_at")
+  validatedBy           String?             @map("validated_by")
+  
+  // Encryption metadata
+  encryptionMethod      String              @default("AES-256-GCM") @map("encryption_method")
+  encryptionKeyVersion  Int                 @default(1) @map("encryption_key_version")
+  
+  // Audit fields
+  metadata              Json?               // Additional configuration metadata
+  createdBy             String?             @map("created_by")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedBy             String?             @map("updated_by")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  deletedAt             DateTime?           @map("deleted_at") // Soft delete
+  
+  // Relationships
+  webhookConfigs        WebhookConfiguration[]
+  auditLogs             ConfigurationAuditLog[]
+  
+  @@unique([tenantId, platform, configType, environment])
+  @@index([tenantId, platform, isActive])
+  @@index([tenantId, isPrimary])
+  @@index([platform, healthStatus])
+  @@index([nextSyncAt])
+  @@map("integration_configs")
+}
+
+model WebhookConfiguration {
+  id                    String              @id @default(uuid())
+  tenantId              String              @map("tenant_id")
+  integrationConfigId   String              @map("integration_config_id")
+  platform              Platform            // HUBSPOT, STRIPE, QUICKBOOKS
+  webhookType           WebhookType         @map("webhook_type") // INBOUND, OUTBOUND
+  
+  // Webhook endpoint configuration
+  endpointUrl           String              @map("endpoint_url")
+  httpMethod            String              @default("POST") @map("http_method")
+  isActive              Boolean             @default(true) @map("is_active")
+  
+  // Security
+  signingSecret         String?             @map("signing_secret") // Encrypted
+  authType              WebhookAuthType     @default(SIGNATURE) @map("auth_type")
+  authToken             String?             @map("auth_token") // Encrypted API key or bearer token
+  customHeaders         Json?               @map("custom_headers") // Additional headers to send
+  
+  // Event configuration
+  subscribedEvents      Json                @map("subscribed_events") // Array of event types
+  eventFilters          Json?               @map("event_filters") // Filtering rules for events
+  payloadTemplate       Json?               @map("payload_template") // Custom payload transformation
+  
+  // Retry configuration
+  maxRetries            Int                 @default(3) @map("max_retries")
+  retryDelayMs          Int                 @default(1000) @map("retry_delay_ms")
+  retryBackoffMultiplier Float              @default(2.0) @map("retry_backoff_multiplier")
+  timeoutMs             Int                 @default(30000) @map("timeout_ms")
+  
+  // Monitoring
+  lastTriggerAt         DateTime?           @map("last_trigger_at")
+  lastSuccessAt         DateTime?           @map("last_success_at")
+  lastFailureAt         DateTime?           @map("last_failure_at")
+  lastErrorMessage      String?             @map("last_error_message")
+  consecutiveFailures   Int                 @default(0) @map("consecutive_failures")
+  totalTriggerCount     Int                 @default(0) @map("total_trigger_count")
+  totalSuccessCount     Int                 @default(0) @map("total_success_count")
+  totalFailureCount     Int                 @default(0) @map("total_failure_count")
+  
+  // Circuit breaker
+  circuitBreakerEnabled Boolean             @default(true) @map("circuit_breaker_enabled")
+  circuitBreakerThreshold Int               @default(5) @map("circuit_breaker_threshold")
+  circuitBreakerResetAfterMs Int            @default(300000) @map("circuit_breaker_reset_after_ms") // 5 minutes
+  circuitBreakerStatus  CircuitBreakerStatus @default(CLOSED) @map("circuit_breaker_status")
+  circuitBreakerOpenedAt DateTime?          @map("circuit_breaker_opened_at")
+  
+  // Platform-specific fields
+  hubspotAppId          String?             @map("hubspot_app_id")
+  hubspotSubscriptionId String?             @map("hubspot_subscription_id")
+  stripeWebhookEndpointId String?           @map("stripe_webhook_endpoint_id")
+  quickbooksWebhookToken String?            @map("quickbooks_webhook_token")
+  
+  // Encryption metadata
+  encryptionMethod      String              @default("AES-256-GCM") @map("encryption_method")
+  encryptionKeyVersion  Int                 @default(1) @map("encryption_key_version")
+  
+  // Audit fields
+  metadata              Json?               // Additional webhook metadata
+  createdBy             String?             @map("created_by")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedBy             String?             @map("updated_by")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+  deletedAt             DateTime?           @map("deleted_at") // Soft delete
+  
+  // Relationships
+  integrationConfig     IntegrationConfig   @relation(fields: [integrationConfigId], references: [id], onDelete: Cascade)
+  auditLogs             ConfigurationAuditLog[]
+  
+  @@unique([tenantId, platform, endpointUrl, webhookType])
+  @@index([tenantId, platform, isActive])
+  @@index([integrationConfigId])
+  @@index([lastTriggerAt])
+  @@index([circuitBreakerStatus])
+  @@map("webhook_configurations")
+}
+
+model ConfigurationAuditLog {
+  id                    String              @id @default(uuid())
+  tenantId              String              @map("tenant_id")
+  entityType            ConfigEntityType    @map("entity_type") // INTEGRATION_CONFIG, WEBHOOK_CONFIG, OAUTH_TOKEN
+  entityId              String              @map("entity_id")
+  action                AuditAction         // CREATE, UPDATE, DELETE, ACTIVATE, DEACTIVATE, VALIDATE
+  
+  // Change tracking
+  fieldName             String?             @map("field_name") // Specific field that was changed
+  oldValue              Json?               @map("old_value") // Previous value (encrypted fields are masked)
+  newValue              Json?               @map("new_value") // New value (encrypted fields are masked)
+  changeReason          String?             @map("change_reason") // Reason for the change
+  
+  // Security context
+  performedBy           String              @map("performed_by") // User ID who made the change
+  performedByEmail      String?             @map("performed_by_email")
+  performedByName       String?             @map("performed_by_name")
+  ipAddress             String?             @map("ip_address")
+  userAgent             String?             @map("user_agent")
+  sessionId             String?             @map("session_id")
+  
+  // Risk assessment
+  riskLevel             RiskLevel           @default(LOW) @map("risk_level")
+  requiresReview        Boolean             @default(false) @map("requires_review")
+  reviewedBy            String?             @map("reviewed_by")
+  reviewedAt            DateTime?           @map("reviewed_at")
+  reviewNotes           String?             @map("review_notes")
+  
+  // Metadata
+  platform              Platform?
+  environment           String?             // production, sandbox, test
+  metadata              Json?               // Additional audit metadata
+  createdAt             DateTime            @default(now()) @map("created_at")
+  
+  // Relationships (optional, nullable to prevent cascade issues)
+  integrationConfigId   String?             @map("integration_config_id")
+  webhookConfigId       String?             @map("webhook_config_id")
+  integrationConfig     IntegrationConfig?  @relation(fields: [integrationConfigId], references: [id], onUpdate: NoAction)
+  webhookConfig         WebhookConfiguration? @relation(fields: [webhookConfigId], references: [id], onUpdate: NoAction)
+  
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, action, createdAt])
+  @@index([performedBy])
+  @@index([riskLevel, requiresReview])
+  @@index([createdAt])
+  @@map("configuration_audit_logs")
+}
+
+// ============================================================================
+// CONFIGURATION ENUMS
+// ============================================================================
+
+enum ConfigType {
+  API_KEY     // API key based authentication
+  WEBHOOK     // Webhook configuration
+  OAUTH       // OAuth configuration (references oauth_tokens)
+  SETTINGS    // General platform settings
+}
+
+enum SyncDirection {
+  INBOUND       // Only receive data from platform
+  OUTBOUND      // Only send data to platform
+  BIDIRECTIONAL // Two-way sync
+}
+
+enum HealthStatus {
+  HEALTHY     // All checks passing
+  DEGRADED    // Some issues but functional
+  UNHEALTHY   // Critical issues
+  UNKNOWN     // Not yet checked
+}
+
+enum WebhookType {
+  INBOUND     // Receiving webhooks from external platform
+  OUTBOUND    // Sending webhooks to external endpoints
+}
+
+enum WebhookAuthType {
+  NONE        // No authentication
+  SIGNATURE   // Signature-based verification
+  BEARER      // Bearer token
+  API_KEY     // API key in header
+  BASIC       // Basic authentication
+  CUSTOM      // Custom authentication method
+}
+
+enum CircuitBreakerStatus {
+  CLOSED      // Normal operation
+  OPEN        // Circuit breaker triggered, not accepting requests
+  HALF_OPEN   // Testing if service recovered
+}
+
+enum ConfigEntityType {
+  INTEGRATION_CONFIG
+  WEBHOOK_CONFIG
+  OAUTH_TOKEN
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+  VALIDATE
+  REFRESH     // For token refresh
+  REVOKE      // For token revocation
+  TEST        // For connection testing
+}
+
+enum RiskLevel {
+  LOW         // Normal configuration changes
+  MEDIUM      // Changes to sensitive settings
+  HIGH        // Critical security changes
+  CRITICAL    // Requires immediate review
 }
 
 enum InvoiceStatus {
