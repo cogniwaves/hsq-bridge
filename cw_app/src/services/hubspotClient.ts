@@ -681,6 +681,13 @@ class HubSpotClient {
       limit: number;
     };
   }> {
+    console.log('🔑 [DEBUG] testConnectionWithKey called:', {
+      hasApiKey: !!apiKey,
+      apiKeyLength: apiKey?.length,
+      apiKeyPrefix: apiKey?.substring(0, 8) + '...',
+      timestamp: new Date().toISOString()
+    });
+
     try {
       // Create a temporary client with the provided API key
       const testClient = axios.create({
@@ -730,6 +737,15 @@ class HubSpotClient {
         apiCalls
       };
     } catch (error: any) {
+      console.error('🔴 [DEBUG] testConnectionWithKey error:', {
+        error,
+        errorMessage: error.message,
+        errorStatus: error.response?.status,
+        errorData: error.response?.data,
+        errorCode: error.code,
+        timestamp: new Date().toISOString()
+      });
+
       logger.error('HubSpot API key validation failed:', error.response?.data || error.message);
       
       let message = 'Connection failed';
@@ -745,6 +761,12 @@ class HubSpotClient {
       } else if (error.response?.data?.message) {
         message = error.response.data.message;
       }
+      
+      console.log('🔴 [DEBUG] testConnectionWithKey final result:', {
+        success: false,
+        message,
+        timestamp: new Date().toISOString()
+      });
       
       return {
         success: false,

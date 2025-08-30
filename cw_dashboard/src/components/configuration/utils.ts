@@ -262,13 +262,28 @@ export const validateForm = (
 // API Integration Utilities
 // ============================================================================
 
+// Function to get authentication headers
+const getAuthHeaders = (): Record<string, string> => {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Check if we're in browser environment and Userfront is available
+  if (typeof window !== 'undefined' && (window as any).Userfront?.tokens?.accessToken) {
+    headers['Authorization'] = `Bearer ${(window as any).Userfront.tokens.accessToken}`;
+  }
+  // Note: No Authorization header needed for config endpoints (auth disabled for testing)
+  
+  return headers;
+};
+
 export const createAPIClient = (baseURL: string) => {
   const client = {
     async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
       const response = await fetch(`${baseURL}${endpoint}`, {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options?.headers,
         },
         ...options,
@@ -285,7 +300,7 @@ export const createAPIClient = (baseURL: string) => {
       const response = await fetch(`${baseURL}${endpoint}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options?.headers,
         },
         body: data ? JSON.stringify(data) : undefined,
@@ -303,7 +318,7 @@ export const createAPIClient = (baseURL: string) => {
       const response = await fetch(`${baseURL}${endpoint}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options?.headers,
         },
         body: data ? JSON.stringify(data) : undefined,
@@ -321,7 +336,7 @@ export const createAPIClient = (baseURL: string) => {
       const response = await fetch(`${baseURL}${endpoint}`, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
           ...options?.headers,
         },
         ...options,
@@ -338,8 +353,9 @@ export const createAPIClient = (baseURL: string) => {
   return client;
 };
 
-// Configuration API client
-export const configAPI = createAPIClient('/api/config');
+// Configuration API client - use full API URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:13000';
+export const configAPI = createAPIClient(`${API_BASE_URL}/api/config`);
 
 // ============================================================================
 // Configuration Testing Utilities

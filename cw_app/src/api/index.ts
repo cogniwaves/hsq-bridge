@@ -164,6 +164,7 @@ apiRoutes.use('/auth', userAuthRoutes); // User authentication endpoints
 // apiRoutes.use('/tenants', tenantRoutes); // Tenant management endpoints  
 // apiRoutes.use('/invitations', invitationRoutes); // Invitation system endpoints
 
+
 // Configuration Management Routes (JWT authentication handled internally)
 apiRoutes.use('/config', configRoutes); // Configuration management endpoints
 
